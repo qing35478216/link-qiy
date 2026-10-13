@@ -17,6 +17,7 @@ const MAP = {
   '03-开发实现框架设计.md': ['03-architecture.md', '开发实现框架设计'],
   '04-模块级实施规格.md': ['04-module-spec.md', '模块级实施规格'],
   '05-AI开发团队与提示词工程.md': ['05-ai-team.md', 'AI 开发团队与提示词工程'],
+  '06-工程踩坑记录.md': ['06-pitfalls.md', '工程踩坑记录'],
   'observability.md': ['observability.md', '可观测性'],
 };
 

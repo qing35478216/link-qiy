@@ -51,6 +51,7 @@ export default defineConfig({
             { text: '开发实现框架设计', link: '/design/03-architecture' },
             { text: '模块级实施规格', link: '/design/04-module-spec' },
             { text: 'AI 开发团队与提示词工程', link: '/design/05-ai-team' },
+            { text: '工程踩坑记录', link: '/design/06-pitfalls' },
             { text: '可观测性', link: '/design/observability' },
           ],
         },
