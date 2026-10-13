@@ -294,6 +294,91 @@ def _record_known_gap(gap_id: str, offenders: list[str]) -> None:
     entry["_last_seen"] = offenders
 
 
+def test_login_paths_both_enforce_agreement(console_spec) -> None:
+    """安全合规铁律：所有登录路径都必须强制协议勾选，不允许某条通道绕过。
+
+    现状（GAP-CONTRACT-004）：短信登录 POST /auth/phone/login 有
+    required: [phone, smsCode, agreementAccepted] 且声明 403 AGREEMENT_NOT_ACCEPTED；
+    但微信扫码路径完全没有等价约束。这不是形式问题——
+    用户在网页勾选过协议后，改用微信扫码登录时服务端不再校验，
+    等于**协议同意状态可被跨通道绕过**。
+
+    本条走缺口基线：登记在known_gaps.py，存量不阻塞；何约补齐后自动转PASS，
+    且此后任何「删掉协议勾选」的改动都会立即 FAIL。
+    """
+    from known_gaps import GAP_WECHAT_LOGIN_MISSING_AGREEMENT, KNOWN_GAPS
+
+    paths = console_spec.get("paths") or {}
+    offenders: list[str] = []
+
+    for path, item in paths.items():
+        if not isinstance(item, dict):
+            continue
+        for method in _HTTP_METHODS:
+            op = item.get(method)
+            if not isinstance(op, dict):
+                continue
+            op_id = op.get("operationId") or f"{method.upper()} {path}"
+            if not _is_login_path(op_id, path):
+                continue
+            if _enforces_agreement(op):
+                continue
+            offenders.append(f"{method.upper()} {path} ({op_id})")
+
+    if not offenders:
+        return
+    _record_known_gap(GAP_WECHAT_LOGIN_MISSING_AGREEMENT, offenders)
+    assert False, (
+        "以下登录路径未强制协议勾选：\n  " + "\n  ".join(offenders) + "\n"
+        "协议同意必须在**所有**登录通道上强制，否则可跨通道绕过。"
+        "契约缺口 GAP-CONTRACT-004：需在扫码路径补 agreementAccepted 约束与 "
+        "403 AGREEMENT_NOT_ACCEPTED 响应（请 Contract Engineer 处理）。"
+        "\n本条当前登记在 known_gaps.py 基线内——Phase 1 前必须清零。"
+    )
+
+
+def _is_login_path(op_id: str, path: str) -> bool:
+    """判断是否是一条「能拿到令牌的登录路径」。"""
+    if path.startswith("/auth/") and any(
+        kw in path for kw in ("login", "qrcode", "sms-code")
+    ):
+        return True
+    return op_id.lower().endswith(("login", "logins"))
+
+
+def _enforces_agreement(op: dict[str, Any]) -> bool:
+    """该操作是否强制了协议勾选。
+
+    判据（任一成立即算强制）：
+    1. 请求体 required 含 agreementAccepted / agreementAcceptedAt 之类字段；
+    2. 响应里声明了 403 且描述/错误码含协议相关语义。
+    """
+    schema = (
+        op.get("requestBody", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    required = {
+        str(x).lower()
+        for x in (schema.get("required") or [])
+        if isinstance(x, str)
+    }
+    if any("agreement" in r for r in required):
+        return True
+
+    for code, resp in (op.get("responses") or {}).items():
+        if str(code) != "403":
+            continue
+        text = str(resp.get("description", "")).lower()
+        if "agreement" in text or "协议" in str(resp.get("description", "")):
+            return True
+        blob = str(resp).lower()
+        if "agreement" in blob:
+            return True
+    return False
+
+
 def test_known_gaps_baseline_has_provenance() -> None:
     """缺口基线的每一条都必须写明来源工单与责任人。
 

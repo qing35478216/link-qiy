@@ -36,6 +36,17 @@ GAP_ERROR_ENVELOPE_UNREFERENCED = "GAP-CONTRACT-002"
 #: 该端点 204 无响应体，不影响 SDK 生成，但影响服务端实现约束。
 GAP_LOGOUT_MISSING_TENANT_HEADER = "GAP-CONTRACT-003"
 
+#: 微信扫码登录路径缺少协议勾选约束。
+#: 现状：POST /auth/phone/login 有 required: [phone, smsCode, agreementAccepted]
+#: 且 403 AGREEMENT_NOT_ACCEPTED；但扫码路径完全没有等价约束——
+#:   - POST /auth/wechat/qrcode      → 无 required，properties 只有 scene
+#:   - GET  /auth/wechat/qrcode/{ticket} → 无任何请求参数
+#: 后果：协议签署只在短信登录被强制，走微信扫码可完全绕过。
+#: 这不只是合规问题，还是**可被利用的绕过路径**：用户在网页勾选过协议，
+#: 之后用微信扫码登录时服务端不再校验，等于协议同意状态可被跨通道绕过。
+#: 与 channel-engineer 在 T-008 发现的同一问题（#26），此处统一登记避免重复上报。
+GAP_WECHAT_LOGIN_MISSING_AGREEMENT = "GAP-CONTRACT-004"
+
 #: 本基线登记的缺口。**只允许减少**：新增条目必须在此处登记 issue 出处。
 KNOWN_GAPS: dict[str, dict[str, str]] = {
     GAP_WRITE_OPS_MISSING_4XX: {
@@ -56,6 +67,17 @@ KNOWN_GAPS: dict[str, dict[str, str]] = {
         "title": "POST /auth/logout 缺少 X-Tenant-Id",
         "detail": "登出为数据写操作（吊销刷新令牌），按铁律 6 需带租户标识。",
         "raised_in": "T-010（QA 基础设施，2026-10-13）",
+        "owner": "Contract Engineer（何约）",
+        "severity": "blocker-for-phase1",
+    },
+    GAP_WECHAT_LOGIN_MISSING_AGREEMENT: {
+        "title": "微信扫码登录路径缺少协议勾选强制",
+        "detail": "协议勾选只在 POST /auth/phone/login 强制（required 含 "
+                  "agreementAccepted + 403 AGREEMENT_NOT_ACCEPTED）；"
+                  "扫码路径 /auth/wechat/qrcode 与 /auth/wechat/qrcode/{ticket} "
+                  "无任何等价约束，协议同意状态可被跨通道绕过。",
+        "raised_in": "T-010（QA 基础设施，2026-10-13）；"
+                     "channel-engineer 在 T-008 独立发现同一问题（task #26）",
         "owner": "Contract Engineer（何约）",
         "severity": "blocker-for-phase1",
     },
