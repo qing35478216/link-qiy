@@ -17,7 +17,9 @@ import structlog
 from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+from linkai_platform.api import apps as apps_api
 from linkai_platform.api import auth as auth_api
+from linkai_platform.api import quota as quota_api
 from linkai_platform.api import users as users_api
 from linkai_platform.api.errors import register_exception_handlers
 from linkai_platform.api.health import router as health_router
@@ -50,6 +52,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_api.router)
     app.include_router(users_api.router)
+    app.include_router(apps_api.router)
+    app.include_router(quota_api.router)
 
     # —— 跨请求共享的持久件（内存态组件 + 令牌服务）；每请求组装见 api/deps ——
     app.state.settings = cfg

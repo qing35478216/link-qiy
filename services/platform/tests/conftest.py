@@ -8,7 +8,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from linkai_platform.domain.app_repositories import AppPage, AppVersionPage
+from linkai_platform.domain.apps import App, AppVersion
 from linkai_platform.domain.events import DomainEvent
+from linkai_platform.domain.pagination import Cursor, encode_cursor
 from linkai_platform.domain.repositories import (
     AccountRef,
     RefreshTokenRecord,
@@ -17,6 +20,102 @@ from linkai_platform.domain.repositories import (
 )
 from linkai_platform.domain.users import User
 from linkai_platform.infra.bus import InMemoryMessageBus
+
+
+class FakeAppRepository:
+    """内存应用仓储（(tenant_id, app_id) 复合键；keyset 分页同 SQL 实现语义）。"""
+
+    def __init__(self) -> None:
+        self._apps: dict[tuple[str, str], App] = {}
+
+    def list_page(
+        self,
+        tenant_id: str,
+        *,
+        app_type: str | None,
+        cursor: Cursor | None,
+        limit: int,
+    ) -> AppPage:
+        rows = [
+            a
+            for (tid, _), a in self._apps.items()
+            if tid == tenant_id and (app_type in (None, "all") or a.type == app_type)
+        ]
+        rows.sort(key=lambda a: (a.created_at, a.id), reverse=True)
+        if cursor is not None:
+            rows = [a for a in rows if (a.created_at, a.id) < (cursor.created_at, cursor.id)]
+        page_rows = rows[:limit]
+        next_cursor = (
+            encode_cursor(page_rows[-1].created_at, page_rows[-1].id)
+            if len(page_rows) == limit
+            else None
+        )
+        return AppPage(items=page_rows, next_cursor=next_cursor)
+
+    def count(self, tenant_id: str, *, app_type: str | None = None) -> int:
+        return len(
+            [
+                a
+                for (tid, _), a in self._apps.items()
+                if tid == tenant_id and (app_type in (None, "all") or a.type == app_type)
+            ]
+        )
+
+    def get(self, tenant_id: str, app_id: str) -> App | None:
+        return self._apps.get((tenant_id, app_id))
+
+    def add(self, app: App) -> None:
+        self._apps[(app.tenant_id, app.id)] = app
+
+    def save(self, app: App) -> None:
+        self._apps[(app.tenant_id, app.id)] = app
+
+    def delete(self, tenant_id: str, app_id: str) -> None:
+        self._apps.pop((tenant_id, app_id), None)
+
+
+class FakeAppVersionRepository:
+    def __init__(self) -> None:
+        self._versions: list[AppVersion] = []
+
+    def add(self, version: AppVersion) -> None:
+        self._versions.append(version)
+
+    def get(self, tenant_id: str, app_id: str, version: int) -> AppVersion | None:
+        for v in self._versions:
+            if v.tenant_id == tenant_id and v.app_id == app_id and v.version == version:
+                return v
+        return None
+
+    def list_page(
+        self,
+        tenant_id: str,
+        app_id: str,
+        *,
+        cursor: Cursor | None,
+        limit: int,
+    ) -> AppVersionPage:
+        rows = [v for v in self._versions if v.tenant_id == tenant_id and v.app_id == app_id]
+        rows.sort(key=lambda v: (v.created_at, v.version), reverse=True)
+        if cursor is not None:
+            # versions 的 cursor.id 承载 str(version)
+            threshold_version = int(cursor.id)
+            rows = [
+                v
+                for v in rows
+                if (v.created_at, v.version) < (cursor.created_at, threshold_version)
+            ]
+        page_rows = rows[:limit]
+        next_cursor = (
+            encode_cursor(page_rows[-1].created_at, str(page_rows[-1].version))
+            if len(page_rows) == limit
+            else None
+        )
+        return AppVersionPage(items=page_rows, next_cursor=next_cursor)
+
+    def config_of(self, tenant_id: str, app_id: str, version: int):
+        found = self.get(tenant_id, app_id, version)
+        return None if found is None else found.config
 
 
 class FakeUserRepository(UserRepository):
@@ -109,6 +208,31 @@ def published_events(bus: InMemoryMessageBus) -> list[DomainEvent]:
     events: list[DomainEvent] = []
     bus.subscribe(events.append)
     return events
+
+
+@pytest.fixture
+def fake_apps() -> FakeAppRepository:
+    return FakeAppRepository()
+
+
+@pytest.fixture
+def fake_app_versions() -> FakeAppVersionRepository:
+    return FakeAppVersionRepository()
+
+
+@pytest.fixture
+def auth_headers(client: TestClient) -> dict[str, str]:
+    """手机号登录一次，返回带 Bearer 的请求头（API 测试通用前置）。"""
+    resp = client.post("/auth/phone/sms-code", json={"phone": "13800138000"})
+    assert resp.status_code == 204
+    code = client.app.state.sms_codes.peek_code("13800138000")  # type: ignore[attr-defined]
+    assert code is not None
+    resp = client.post(
+        "/auth/phone/login",
+        json={"phone": "13800138000", "smsCode": code, "agreementAccepted": True},
+    )
+    assert resp.status_code == 200
+    return {"Authorization": f"Bearer {resp.json()['accessToken']}"}
 
 
 @pytest.fixture(autouse=True)
