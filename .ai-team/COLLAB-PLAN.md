@@ -508,3 +508,49 @@ model-proxy `domain/errors.py`：`TenantContextError.client_status = 400`（客�
 | GAP-002/003 | 保持 | 已知且已排序 |
 
 **Authorization 头未剥离**（qa-reviewer 主动发现，超出其工单范围）：`httputil.ReverseProxy` 默认原样转发所有头，`routing.go`/`proxy.go` 全文检索 `Authorization` 零命中。后果是**鉴权双重入口**——网关已裁决凭证状态，下游又按自己判断来；若下游误信客户端 `Authorization`，等于绕过网关鉴权。
+
+## 四点十五、GAP-CONTRACT 编号体系统一（23:35· 以 `known_gaps.py` 为唯一事实源）
+
+qa-reviewer 发现主理人一直在**混用两套 GAP 编号体系**。经核实 `tests/contracts/known_gaps.py` L22-69，**该文件里的登记才是官方编号**，主理人此前发出的编号表述有误，已作废。
+
+### 官方编号（唯一事实源：`tests/contracts/known_gaps.py`）
+
+| 编号 | 常量 | 内容 | 优先级 |
+|---|---|---|---|
+| 001 | `GAP_WRITE_OPS_MISSING_4XX` | 13 个写操作全未声明 4xx（T-014 已降为 warn） | 风格类 |
+| 002 | `GAP_ERROR_ENVELOPE_UNREFERENCED` | `Error` 信封从未被 `$ref` 引用——前端拿不到统一错误形状，链路拿不到 requestId | **Phase 1 阻塞** |
+| 003 | `GAP_LOGOUT_MISSING_TENANT_HEADER` | `POST /auth/logout` 无任何 parameters（含 `X-Tenant-Id`），登出写吊销记录可能裸查询 → 铁律 6 风险 | **Phase 1 阻塞** |
+| 004 | `GAP_WECHAT_LOGIN_MISSING_AGREEMENT` | 微信扫码缺协议勾选约束 | **合规级·最高** |
+| 005 | `GAP_TENANT_MISSING_STATUS_INCONSISTENT` | 缺租户错误码不一致（model-proxy 400 / gateway 500） | Phase 1 |
+| 006 | `GAP_IDENTITY_HEADERS_UNDEFINED` | 身份头清单未契约化（`common.yaml` 仅 `X-Tenant-Id`） | Phase 1 |
+
+### 作废条目
+
+**「`POST /auth/refresh` 无 principal 应 403 非 401」——作废，不在任何登记体系内。** 主理人此前多次引用此条，来源无法追溯（推测为早期推测或另一上下文），已作废，**不要执行**。
+
+### 归并方案（修订版）
+
+| 项 | 归并 | 理由 |
+|---|---|---|
+| 004 + 006 + **Authorization 头未剥离** | **「身份头与协议约束契约化」** | 根因同为「契约没定义，各服务各自口头约定」，何约一次处理 |
+| 005 | **独立** | 属错误码语义一致性，合并会让处置路径复杂 |
+| 002 + 003 | **合为一条「契约缺口补齐」** | 都是 Phase 1 阻塞项，均为端点/组件声明缺失，处置路径相同 |
+| 001 | 保持独立 | 已被 T-014 降为 warn，不阻塞 |
+
+### 值得沉淀的契约测试设计范式
+
+qa-reviewer 对 GAP-005 的处置（`known_gaps.py` L57-60）：
+
+> 断言写成「必须落在 4xx 族」而非钉死某个码，这样两种实现都通过；何约定码后再把断言收紧为精确匹配。
+
+**这是本轮最好的契约测试设计**：承认「定码是契约决定、不是 QA 能定的事」，同时在模糊期仍能挡住「返回 5xx」这个真正要拦的错误。**两段式演进**：先族级断言 → 何约定码 → 收紧为精确匹配。已要求写入 `ARCH_GUARD_BOUNDARY.md` 作为所有「契约未定语义」的守卫模板。
+
+### 团队规范：清单型守卫必须配反向兜底
+
+qa-reviewer 在 T-010 中自己点破（`AGREEMENT_BEARING_LOGIN_ENDPOINTS` 那次）：
+
+> 没有这条，清单本身就成了新的漏检源——漏检恰恰是这守卫存在的理由，却出现在它自己身上。
+
+**规范**：任何「白名单 / 清单型」守卫，必须配一条「清单完整性」反向守卫。
+
+延伸（qa-reviewer 第二轮提出）：清单应**从契约派生**而非手写——`console-api.yaml` 的 `operationId` 即权威清单，遍历即得全部业务 operationId，新增端点自动进守卫范围。
