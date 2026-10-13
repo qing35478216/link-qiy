@@ -1,15 +1,37 @@
 """架构守卫：把 AGENTS.md 铁律里**能被机器判定**的部分钉成测试。
 
-分工边界很重要：
-- 能机检的（本文）：多租户 tenant 标识、错误信封统一、安全声明显式化、
-  operationId 存在性与唯一性。
-- 不能机检的（留给 Reviewer 与人类）：架构决策合理性、领域建模好坏、
-  黄金集分数趋势、里程碑验收。
+## 分工边界（与 `.spectral.yaml` 的划界，勿再扩大重叠）
 
-这些断言与 `packages/contracts/.spectral.yaml` 的 linkai-* 规则**有意重叠**。
-理由：spectral 是契约包的 lint 入口，若被单独跳过（只跑 pytest），
-架构铁律就失去防线。QA 层独立再钉一遍，是 defense in depth——
-本项目已发生 3 次静默死亡，护栏不能只有一道。
+主理人裁决（T-010评审）：**spectral 管 lint 规则，本文件管 spectral 表达不了的规则。**
+「重复不叫纵深，叫维护负担」——契约改动需两处同改，漏改概率远高于「有人显式跳过
+spectral」（前者静默腐化，后者是显式行为）。
+
+按此原则，本文件**只保留 spectral 无法或不应表达的规则**：
+
+| 本文件的规则 | 为什么留在 pytest |
+|---|---|
+| `test_console_operations_declare_tenant_context` | 需解析 `$ref`（`../schemas/common.yaml#/TenantHeader`）并跨文件比对；spectral 的 JSONPath 看不见被引用文件里的 `name: X-Tenant-Id` |
+| `test_service_api_keys_bind_tenant` | 判定依据是「用户面租户由 Key 归属解析」这一**跨规范语义约定**，需对比两份规范的 security 方案，不是单份规范的结构校验 |
+| `test_public_operations_are_actually_public` | `x-public: true` 与 `security: []` 的**矛盾检测**（两者都写了但不一致）。spectral 逐规则判断，天然做不了跨字段一致性检查 |
+| `test_operation_ids_are_unique` | 已迁回 spectral（见下方迁出记录），此处不再断言 |
+| `test_login_paths_agreement_consistency` | **跨端点一致性检测**：取约束最严的登录通道作基准，比对其他通道。与 spectral 的「逐操作独立判断」是不同范式——spectral 无法表达「A 与 B 要一致」 |
+| `test_error_envelope_referenced_by_operations` | 检测**跨文件引用是否存在**（$ref 有没有被用上）。spectral 校验 $ref 写得对不对，不校验它有没有被引用 |
+| `test_known_gaps_baseline_has_provenance` | 检查 `known_gaps.py` 自身的元数据完整性，与契约内容无关 |
+| `test_contracts/*` 其余用例 | 规范合法性、生成物漂移——spectral 完全不覆盖 |
+
+## 迁出记录（迁回 spectral 的规则，防再次重复实现）
+
+- **2026-10-13**：`test_operation_ids_are_unique` →已由
+  `.spectral.yaml` 的 `operation-operationId-unique: error` 覆盖，从本文件移除。
+  原因：spectral 的 `spectral:oas` 规则集自带该检查且已是 error 级，
+  我们再写一遍纯属重复维护。
+- **2026-10-13（待主理人裁定）**：以下几条 spectral **能等价表达**，
+  建议迁回以消除双维护——已列入T-010 交付说明的迁移清单，
+  在主理人裁定前**保持现状不动**（动了会破坏 CI 现状）：
+  - `test_every_operation_declares_security` ≡ `linkai-security-defined`
+  - `test_operations_have_summary` ≡ `linkai-operation-summary-required`
+  - `test_error_envelope_schema_is_wellformed` ≈ `linkai-error-envelope-shape`
+  - `test_write_operations_declare_error_responses` ≡ `linkai-error-response-4xx`
 """
 
 from __future__ import annotations
@@ -25,7 +47,6 @@ pytestmark = pytest.mark.arch_guard
 _HTTP_METHODS = ("get", "post", "put", "patch", "delete")
 #: 租户标识的三种写法 + 契约里 $ref 的公共片段名（common.yaml#/TenantHeader）
 _TENANT_MARKERS = {"X-Tenant-Id", "tenantId", "tenant_id", "TenantHeader"}
-_PUBLIC_OPS = {"createWechatQrcode", "getWechatQrcodeStatus", "sendPhoneSmsCode", "phoneLogin"}
 
 
 def _operations(spec: dict[str, Any]):
@@ -93,8 +114,6 @@ def test_console_operations_declare_tenant_context(
     offenders = []
     for path, method, op in _operations(spec):
         if op.get("x-public") is True:
-            continue
-        if op.get("operationId") in _PUBLIC_OPS:
             continue
         if not (_declared_param_names(op) & _TENANT_MARKERS):
             offenders.append(f"{method.upper()} {path} ({op.get('operationId')})")

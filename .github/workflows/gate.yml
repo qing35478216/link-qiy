@@ -30,6 +30,120 @@ jobs:
       - name: Contracts lint（spectral 契约机检，error 必须为零）
         run: pnpm -C packages/contracts lint
 
+      # ── QA 基础设施（T-010）：契约测试 + 架构守卫 ──────────────
+      # 为什么单独一个 job：这些检查是纯Python 的，不依赖 pnpm workspace，
+      # 独立 job 可以和上面的 Node 检查并行，且失败时能一眼看出是契约问题
+      # 还是构建问题。
+      #
+      # 注意 `.github/**` 不在 T-010 工单的「文件领地」内（那里只有
+      # `.ai-team/**, tests/**`）。此改动由主理人指派，理由是：
+      # 守卫不接 CI 就等于只在本地跑，两道防线形同虚设。
+  qa-contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install contract-test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/contracts/requirements.txt
+
+      # 只跑离线用例：消费者侧（SDK 漂移 / OpenAPI 合法性）+ 架构守卫。
+      # 提供者侧需要服务在 BASE_URL 上运行，Phase 0 服务未落地，
+      # 由 conftest 逐条 skip——SKIP 不算 PASS，门禁报告会显式列出。
+      - name: Contract tests（消费者侧 + 架构守卫）
+        run: |
+          python -m pytest tests/contracts \
+            -m "consumer or arch_guard" \
+            -q --no-header -p no:cacheprovider
+
+      # 黄金集格式校验：不需要任何模型或服务，纯 schema 校验。
+      # 防住「有人手写了格式不对的用例，评测跑分时才炸」。
+      - name: Golden set schema validation
+        run: python tests/golden-set/run_golden_set.py --validate-only
+
+  gate-classifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 拉全历史：门禁链要用 `git merge-base` 判断变更范围
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # 分级门禁的「分级判定」部分（风险分类 + 领地检查）。
+      #
+      # 为什么只跑这一部分而不是整个 gate_chain.py：完整版会调pnpm/oasdiff，
+      # 那些在本 job 里没装，跑出来是一片 SKIP，噪音盖过信号。
+      # 分类与领地检查是纯 Python 零依赖，且这两条恰恰是最该在CI 里
+      # 硬拦的——越界改动与未申报的风险类别。
+      - name: Gate classification（风险分类 + 领地检查）
+        run: |
+          python - <<'PY'
+          import subprocess, sys, json
+          sys.path.insert(0, "tests/gate")
+          from gate_chain import collect_changes, current_ticket_id, load_territories, path_in_territory
+
+          base = "origin/main"
+          try:
+              changes = collect_changes(base)
+          except SystemExit as exc:
+              # main 上首次提交等场景：无变更可判，直接放行
+              print(f"无可判定变更（{exc}）")
+              sys.exit(0)
+
+          if not changes:
+              print("与 origin/main 无文件差异")
+              sys.exit(0)
+
+          # 1) 领地检查：越界即失败
+          terr = load_territories()
+          ticket = current_ticket_id()
+          violations = []
+          if terr is not None and ticket and ticket in terr:
+              violations = [
+                  f"{c.status} {c.path}" for c in changes
+                  if not path_in_territory(c.path, terr[ticket])
+              ]
+          if violations:
+              print(f"::error::工单 {ticket} 领地越界：")
+              for v in violations:
+                  print(f"  - {v}")
+              sys.exit(1)
+          print(f"领地检查通过（工单 {ticket or '<未识别>'}）")
+
+          # 2) 风险分类：命中三类则标 required 标签提醒人工评审
+          cats = set()
+          for c in changes:
+              cats |= c.categories
+          print("风险类别：", ", ".join(sorted(cats)) or "无")
+
+          full = cats & {"funding", "contract", "security"}
+          if full:
+              print(f"::warning::命中全量独立门禁类别 {sorted(full)}——"
+                    "需QA 独立评审 + 对应人类检查点签字，脚本通过不等于可合并")
+
+          with open("gate-classification.json", "w") as f:
+              json.dump({"ticket": ticket, "categories": sorted(cats),
+                         "tier": "full" if full else "light"}, f)
+          PY
+
+      - name: Upload classification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-classification
+          path: gate-classification.json
+          if-no-files-found: ignore
+
       # ── 占位步骤：待服务代码落地后启用（对应工单启用时删除本注释并替换真实命令）──
 
       # TODO [T-003~T-008] Python 服务 lint + 类型（uv + ruff + mypy --strict）：
@@ -49,5 +163,6 @@ jobs:
       - name: Trivy dependency scan（占位）
         run: echo 'TODO trivy fs 待服务依赖（requirements/pyproject）落地后启用'
 
-      # 后续阶段补充：oasdiff 破坏性变更检测（contracts README 已预留）、
-      # Pact 契约测试、pytest 覆盖率门禁（领域层 ≥70%）、Playwright E2E
+      # 后续阶段补充：oasdiff 破坏性变更检测（Go 二进制，见 packages/contracts/scripts/diff.sh 安装提示）、
+      # schemathesis 提供者侧契约测试（需服务 BASE_URL，见 tests/contracts/README.md）、
+      # pytest 覆盖率门禁（领域层 ≥70%，Phase 1 恢复硬门禁）、Playwright E2E
