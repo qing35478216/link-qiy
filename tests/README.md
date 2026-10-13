@@ -16,6 +16,10 @@ python3 tests/gate/gate_chain.py --base main
 
 输出分级报告 + PASS/FAIL + 不通过原因。退出码 0/1 可直接接CI。
 
+> **门禁入口就是上面这个文件。不存在 `test_gate.py`。**
+> 若你在别处看到提到 `test_gate.py` 或「门禁入口文件」的，那是误传——
+> 该文件在本仓库 git 全历史中从未存在过。
+
 ## 分级逻辑（AGENTS.md Phase 0 轻量门禁）
 
 ```

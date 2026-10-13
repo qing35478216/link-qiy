@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """LinkAI 门禁链——分级门禁编排器。
 
+> **注意：仓库里不存在 `test_gate.py`。**
+> 若你在搜索门禁入口时看到有人提到 `tests/test_gate.py`、`test_gate.py 薄壳`
+> 或「门禁入口」，那是**误传**——该文件在本仓库的 git 全历史中从未存在过。
+> 门禁入口就是本文件（`tests/gate/gate_chain.py`）。写在这里是为了省下后来者
+> 的一遍考古。
+
 对应 AGENTS.md 工程规范的「Phase 0 轻量门禁」条款与人类五检查点：
 
     默认合并制：实现者自验（lint/构建/自测跑通）+ 主理人 diff 抽查 即合并；
@@ -382,21 +388,63 @@ def check_territory(changes: list[Change]) -> CheckResult:
     """
     territories = load_territories()
     if territories is None:
+        # 同样是静默放行：领地图解析不出来 = 我们不知道规矩是什么。
+        # 早前这里返回 SKIP，等于「不知道规矩」被当成「没有规矩问题」。
         return CheckResult(
-            "文件领地", "SKIP",
-            reason="未能从 .ai-team/tickets/*.md 解析出领地声明，跳过检查。"
-                   "（这是检查失效，不是领地合规）",
+            "文件领地", "FAIL",
+            detail=(
+                "未能从 .ai-team/tickets/*.md 解析出任何工单的领地声明，"
+                "因此无法核对本次改动是否越界。\n\n"
+                "这是**检查失效**，不是领地合规。判FAIL 的理由：\n"
+                "  · 文件领地是唯一能机检的架构铁律（铁律 3）\n"
+                "  · 解析失败时若放行，所有越界改动都能通过门禁\n\n"
+                "排查：确认 .ai-team/tickets/ 存在且工单含「## 文件领地」节。"
+            ),
         )
 
     current = current_ticket_id()
     owned = territories.get(current) if current else None
 
+    # ── 无法判定工单 = FAIL，不是 SKIP ──────────────────────────────
+    # 曾经的 bug：这里返回 SKIP，于是「分支名不含工单号」的分支
+    # （如 fix/model-proxy-ssrf-ipv6、merge_request/123、纯 sha）
+    # 领地检查直接跳过 → **越界改动静默放行，红变绿**。
+    #
+    # 危险等级：测试全绿时最危险，而且它绕过的正是铁律 3（文件领地）——
+    # 那是唯一能机检的架构铁律。
+    #
+    # 为什么不能 SKIP：SKIP 的语义是「这条检查不适用于本次改动」。
+    # 而「识别不出工单号」不是不适用，是**输入有问题**——
+    # 我们根本不知道该拿哪份领地图来比。输入有问题时放行，
+    # 等于把「不知道」当成「没问题」。
+    #
+    # 真正的「不适用」只有一种：改动范围本来就不涉及领地概念
+    # （纯文档、纯 .ai-team 内部记录）——那在下面单独处理。
     if owned is None:
-        return CheckResult(
-            "文件领地", "SKIP",
-            reason=f"工单 {current or '<未识别>'} 未在 .ai-team/tickets/ 中声明文件领地，"
-                   "无法自动核对。请主理人人工确认改动范围。",
+        branch = _branch_name()
+        detail = (
+            f"无法确定当前改动属于哪个工单，因此**无法核对文件领地**。\n"
+            f"  分支名：{branch or '<取不到>'}\n"
+            f"  已尝试：① 分支名含 T-xxx ② 变更提交的 message 含 [T-xxx]\n"
+            f"  工单：{current or '<未识别>'}\n\n"
+            "这不是「检查通过」，也不是「不适用」——是**输入有问题**，故判FAIL。\n"
+            "处置（三选一）：\n"
+            "  a) 分支改名为 feat/T-xxx-简述（推荐，AGENTS.md 分支约定）\n"
+            "  b) 提交信息末尾加 [T-xxx]（AGENTS.md 提交信息约定）\n"
+            "  c) 若确为领地外改动（如临时分支），请在工单「文件领地」节补登\n\n"
+            "背景：早前这里返回 SKIP，导致无工单号分支的越界改动静默放行。\n"
+            "文件领地是唯一能机检的架构铁律（铁律 3），放过它等于形同虚设。"
         )
+        # 纯 .ai-team/** 或纯文档改动不涉及领地概念 —— 那才是真·不适用
+        if all(
+            c.path.startswith((".ai-team/", "docs/")) or c.path.endswith(".md")
+            for c in changes
+        ):
+            return CheckResult(
+                "文件领地", "SKIP",
+                reason="改动仅涉及文档与 .ai-team 内部记录，不涉及代码领地。",
+            )
+        return CheckResult("文件领地", "FAIL", detail=detail)
 
     violations = [f"{c.status} {c.path}" for c in changes if not path_in_territory(c.path, owned)]
     if violations:
@@ -465,6 +513,17 @@ def load_territories() -> dict[str, set[str]] | None:
     return result or None
 
 
+def _branch_name() -> str:
+    """当前分支名（取不到返回空串，不抛）。"""
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        ).stdout.strip()
+    except OSError:
+        return ""
+
+
 def current_ticket_id() -> str | None:
     """推断当前改动属于哪个工单。
 
@@ -477,16 +536,10 @@ def current_ticket_id() -> str | None:
        变更涉及的提交信息（约定格式 `... [T-010]`）。
 
     没有兜底的后果是静默失效：识别不到工单 → `owned` 为 None →
-    领地检查直接返回 SKIP，越界改动就这么放过去了。
-    这正是「静默腐化比显式失败更危险」，所以宁可多写这几行。
+    领地检查无法核对。**必须返回 None 而非猜一个**——调用方据此判 FAIL，
+    猜错会让越界改动被拿错误的领地图核对，等于没核对。
     """
-    try:
-        branch = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=REPO_ROOT, capture_output=True, text=True,
-        ).stdout.strip()
-    except OSError:
-        branch = ""
+    branch = _branch_name()
     m = re.search(r"T-(\d+)", branch)
     if m:
         return f"T-{m.group(1)}"
