@@ -69,6 +69,8 @@ def sync_detailed(
 ) -> Response[PutAppConfigResponse200]:
     """保存配置七件套（保存即新版本）
 
+     全量替换语义——未提供的段落视为清空；部分更新待 v0.2 PATCH 端点
+
     Args:
         app_id (str):
         x_tenant_id (str):
@@ -104,6 +106,8 @@ def sync(
 ) -> PutAppConfigResponse200 | None:
     """保存配置七件套（保存即新版本）
 
+     全量替换语义——未提供的段落视为清空；部分更新待 v0.2 PATCH 端点
+
     Args:
         app_id (str):
         x_tenant_id (str):
@@ -133,6 +137,8 @@ async def asyncio_detailed(
     x_tenant_id: str,
 ) -> Response[PutAppConfigResponse200]:
     """保存配置七件套（保存即新版本）
+
+     全量替换语义——未提供的段落视为清空；部分更新待 v0.2 PATCH 端点
 
     Args:
         app_id (str):
@@ -166,6 +172,8 @@ async def asyncio(
     x_tenant_id: str,
 ) -> PutAppConfigResponse200 | None:
     """保存配置七件套（保存即新版本）
+
+     全量替换语义——未提供的段落视为清空；部分更新待 v0.2 PATCH 端点
 
     Args:
         app_id (str):

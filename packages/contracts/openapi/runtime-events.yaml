@@ -1,19 +1,21 @@
-# Runtime Event 协议 v0.1.0 —— 所有前端（画布/对话/渠道）与运行时的统一事件源
+# Runtime Event 协议 v0.1.1 —— 所有前端（画布/对话/渠道）与运行时的统一事件源
 # 传输：SSE，每个事件一个 data 帧，内容为下方对应 schema 的 JSON
 # 铁律：事件类型只增不改；新增类型必须同步本文件与全部消费端
+# 流式结束约定（v0.1.1）：done 事件为正常终局（携带 usage/finishReason）；
+# error 事件为异常终局；连接关闭仅为兜底，消费方不得依赖
 openapi: 3.1.0
 info:
   title: LinkAI Runtime Events（SSE 事件协议）
-  version: 0.1.0
+  version: 0.1.1
 components:
   schemas:
     EventEnvelope:
       type: object
-      required: [event, traceId, ts]
+      required: [event, traceId, conversationId, ts]
       properties:
         event: { type: string, description: 事件类型判别字段（下方各 schema 的固定值） }
         traceId: { type: string, description: OTel trace_id，全链路贯通 }
-        conversationId: { type: string }
+        conversationId: { type: string, description: 会话 ID（所有事件必带，用于乱序重组与对账） }
         nodeId: { type: string, nullable: true, description: 工作流节点运行时 ID（对话页可空） }
         ts: { type: string, format: date-time }
     NodeStartedEvent:
@@ -35,10 +37,10 @@ components:
             event: { type: string, const: message_chunk }
             data:
               type: object
-              required: [delta]
+              required: [delta, seq]
               properties:
                 delta: { type: string }
-                seq: { type: integer }
+                seq: { type: integer, description: 分片序号（从 0 起），消费方按 seq 排序兜底乱序 }
     ToolCalledEvent:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -65,6 +67,25 @@ components:
               required: [content]
               properties:
                 content: { type: string }
+    DoneEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            event: { type: string, const: done }
+            data:
+              type: object
+              required: [usage, finishReason]
+              properties:
+                usage:
+                  type: object
+                  required: [promptTokens, completionTokens, totalTokens, credits]
+                  properties:
+                    promptTokens: { type: integer }
+                    completionTokens: { type: integer }
+                    totalTokens: { type: integer }
+                    credits: { type: integer, description: 本次对话消耗积分 }
+                finishReason: { type: string, enum: [stop, length, tool_calls, error] }
     ErrorEvent:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -97,6 +118,7 @@ components:
         - $ref: '#/components/schemas/ThoughtEvent'
         - $ref: '#/components/schemas/ErrorEvent'
         - $ref: '#/components/schemas/HumanInputRequiredEvent'
+        - $ref: '#/components/schemas/DoneEvent'
       discriminator:
         propertyName: event
         mapping:
@@ -106,3 +128,4 @@ components:
           thought: '#/components/schemas/ThoughtEvent'
           error: '#/components/schemas/ErrorEvent'
           human_input_required: '#/components/schemas/HumanInputRequiredEvent'
+          done: '#/components/schemas/DoneEvent'
