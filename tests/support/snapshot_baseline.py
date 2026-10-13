@@ -200,6 +200,31 @@ def collect() -> dict[str, object]:
     }
 
 
+def _has_commit_touching(rel_path: str, since_commit: str | None) -> bool:
+    """该文件自基线 commit 起，是否有 git 提交动过它。
+
+    这是「内容变化」与「内容漂移事故」的分界：
+    有提交 = 有人负责的正常改动；无提交 = 工作区被外部改写。
+
+    两种失败都要处理：
+    - since_commit 不在当前仓库（浅克隆/换机器）→ 保守返回 True，
+      否则 CI 上会误报成事故
+    - git 命令失败 → 同上，宁可放过也不误伤
+    """
+    if not since_commit:
+        return True
+    try:
+        r = subprocess.run(
+            ["git", "log", "--oneline", f"{since_commit}..HEAD", "--", rel_path],
+            cwd=REPO_ROOT, capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return True
+    if r.returncode != 0:
+        return True
+    return bool(r.stdout.strip())
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="QA 守卫基线快照")
     ap.add_argument("--write", action="store_true", help="写入基线文件")
@@ -252,13 +277,34 @@ def main(argv: list[str] | None = None) -> int:
         elif bv != cv:
             drift.append(f"守卫 {name} 结果变化：{bv} → {cv}")
 
-    # 3) 文件指纹变化（内容被覆盖会暴露）
+    # 3) 文件指纹变化 —— 关键：内容变了不等于出事了
+    #
+    # 首版把「文件内容变化」一律判 BLOCKING，这是错的：
+    # 任何人**正常改进** tests/ 下的文件，哈希都会变——那会导致
+    # 每次改进都红一次。而常红的门禁等于没有门禁。
+    #
+    # 正确判据是「这个变化有没有对应的 git 提交」：
+    #   · 有提交 → 有人负责的正常改动 → ADVISORY
+    #   · 无提交 → 工作区被别的东西改了（正是内容漂移事故）→ BLOCKING
+    #   · 文件缺失 → 永远BLOCKING（文件丢了不会自己回来）
     b_fp, c_fp = baseline["file_fingerprints"], current["file_fingerprints"]
+    baseline_commit = baseline.get("commit")
     for rel in sorted(set(b_fp) | set(c_fp)):
-        if c_fp.get(rel, {}).get("missing"):
+        cur = c_fp.get(rel, {})
+        base = b_fp.get(rel, {})
+        if cur.get("missing"):
             drift.append(f"文件缺失：{rel}")
-        elif b_fp.get(rel) != c_fp.get(rel):
-            drift.append(f"文件内容变化：{rel}（{b_fp.get(rel)} → {c_fp.get(rel)}）")
+        elif not base.get("missing") and base != cur:
+            if _has_commit_touching(rel, baseline_commit):
+                drift.append(f"[ADVISORY] 文件内容变化：{rel}（有对应提交，正常改动）")
+            else:
+                drift.append(
+                    f"文件内容变化但无对应提交：{rel}。"
+                    f"基线 commit={baseline_commit}，"
+                    f"但该文件在 git 历史里没有变更记录——"
+                    f"高度怀疑是工作区被外部改写（内容漂移事故）。"
+                    f"请确认：`git diff {rel}`。若确认无误，跑 --write 刷新基线。"
+                )
 
     # 4) 缺口增减（新增缺口正常，减少是修复）
     b_gaps, c_gaps = set(baseline["gaps"]), set(current["gaps"])
