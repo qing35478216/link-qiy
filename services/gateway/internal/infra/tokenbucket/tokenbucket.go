@@ -20,8 +20,8 @@ type entry struct {
 	// limit/burst 记录当前生效的配置。只在配置真正变化时才调用
 	// rate.Limiter 的 SetLimit/SetBurst——这两个方法会把令牌补满，
 	// 若每次请求都调用，桶会被无限续命，限流形同虚设。
-	limit   rate.Limit
-	burst   int
+	limit    rate.Limit
+	burst    int
 	lastSeen time.Time
 }
 

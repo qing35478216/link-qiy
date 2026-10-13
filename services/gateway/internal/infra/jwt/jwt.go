@@ -57,10 +57,10 @@ func New(cfg Config) *Authenticator {
 		now = time.Now
 	}
 	return &Authenticator{
-		secret:  cfg.Secret,
-		issuer:  cfg.Issuer,
-		leeway:  cfg.Leeway,
-		now:     now,
+		secret: cfg.Secret,
+		issuer: cfg.Issuer,
+		leeway: cfg.Leeway,
+		now:    now,
 	}
 }
 

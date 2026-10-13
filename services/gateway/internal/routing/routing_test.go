@@ -53,6 +53,16 @@ func buildTable(t *testing.T) *Table {
 	return table
 }
 
+// chain 组装完整的 解析 → 转发 链路，返回可驱动的前置处理器。
+//
+// 与 server 装配层保持一致：CORS/鉴权/限流夹在两者之间，
+// 这里不重复它们，只保证两段路由逻辑能被独立验证。
+func chain(table *Table, p Proxy) http.Handler {
+	resolver := NewResolver(table)
+	forwarder := NewMiddleware(p)
+	return resolver.Handle(forwarder.Handle(http.NotFoundHandler()))
+}
+
 // principalWith 返回一个带租户的 Principal。
 func principalWith(tenant string, scopes ...string) domain.Principal {
 	return domain.Principal{
@@ -153,12 +163,12 @@ func TestHandleInjectsTenantHeaders(t *testing.T) {
 
 	table := buildTable(t)
 	p := &recordingProxy{}
-	mw := NewMiddleware(table, p)
+	h := chain(table, p)
 
 	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
 
-	mw.Handle(http.NotFoundHandler()).ServeHTTP(httptest.NewRecorder(), r)
+	h.ServeHTTP(httptest.NewRecorder(), r)
 
 	if len(p.calls) != 1 || p.calls[0] != "runtime" {
 		t.Fatalf("proxy calls = %v, want [runtime]", p.calls)
@@ -189,11 +199,11 @@ func TestHandleSetsSurfaceInContext(t *testing.T) {
 		got, ok = domain.SurfaceFrom(r.Context())
 		w.WriteHeader(http.StatusOK)
 	})
-	mw := NewMiddleware(table, capture)
+	h := chain(table, capture)
 
 	r := httptest.NewRequest(http.MethodGet, "/console/api/v1/apps", nil)
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
-	mw.Handle(http.NotFoundHandler()).ServeHTTP(httptest.NewRecorder(), r)
+	h.ServeHTTP(httptest.NewRecorder(), r)
 
 	if !ok {
 		t.Fatal("surface should be present in context")
@@ -215,12 +225,12 @@ func TestHandleRejectsMissingTenant(t *testing.T) {
 
 	table := buildTable(t)
 	p := &recordingProxy{}
-	mw := NewMiddleware(table, p)
+	h := chain(table, p)
 
 	// 请求 context 里没有 Principal。
 	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
 	rec := httptest.NewRecorder()
-	mw.Handle(http.NotFoundHandler()).ServeHTTP(rec, r)
+	h.ServeHTTP(rec, r)
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", rec.Code)
@@ -236,12 +246,12 @@ func TestHandleRejectsEmptyTenant(t *testing.T) {
 
 	table := buildTable(t)
 	p := &recordingProxy{}
-	mw := NewMiddleware(table, p)
+	h := chain(table, p)
 
 	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("")))
 	rec := httptest.NewRecorder()
-	mw.Handle(http.NotFoundHandler()).ServeHTTP(rec, r)
+	h.ServeHTTP(rec, r)
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", rec.Code)
@@ -271,13 +281,13 @@ func TestHandleEnforcesRequiredScopes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			proxy := &recordingProxy{}
-			mw := NewMiddleware(table, proxy)
+			h := chain(table, proxy)
 
 			r := httptest.NewRequest(http.MethodPost, "/internal/v1/models/invoke", nil)
 			r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a", tc.scopes...)))
 
 			rec := httptest.NewRecorder()
-			mw.Handle(http.NotFoundHandler()).ServeHTTP(rec, r)
+			h.ServeHTTP(rec, r)
 
 			if rec.Code != tc.wantStatus {
 				t.Errorf("status = %d, want %d", rec.Code, tc.wantStatus)
@@ -295,12 +305,12 @@ func TestHandleNoRouteReturns404(t *testing.T) {
 
 	table := buildTable(t)
 	p := &recordingProxy{}
-	mw := NewMiddleware(table, p)
+	h := chain(table, p)
 
 	r := httptest.NewRequest(http.MethodGet, "/no/such/route", nil)
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
 	rec := httptest.NewRecorder()
-	mw.Handle(http.NotFoundHandler()).ServeHTTP(rec, r)
+	h.ServeHTTP(rec, r)
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", rec.Code)
@@ -314,12 +324,58 @@ func TestHandleNoRouteReturns404(t *testing.T) {
 func TestHandleUnmatched(t *testing.T) {
 	t.Parallel()
 
-	mw := NewMiddleware(buildTable(t), &recordingProxy{})
 	rec := httptest.NewRecorder()
-	mw.HandleUnmatched(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
+	HandleUnmatched(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestResolverRejectsUnmatchedPath 验证无匹配路径在解析阶段即被拦成 404。
+//
+// 这一步必须早于鉴权：无路由的请求没有上游，不该消耗鉴权与限流的配额。
+func TestResolverRejectsUnmatchedPath(t *testing.T) {
+	t.Parallel()
+
+	p := &recordingProxy{}
+	h := chain(buildTable(t), p)
+
+	r := httptest.NewRequest(http.MethodGet, "/no/such/path", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, r)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
+	if len(p.calls) != 0 {
+		t.Error("unmatched request must not be forwarded")
+	}
+}
+
+// TestResolverMarksSurfaceWithoutPrincipal 验证解析阶段即可读出入口面。
+//
+// 这是 CORS 能排在鉴权之前的前提：预检请求没有凭证，
+// 但仍需按入口面套用正确的跨域策略。
+func TestResolverMarksSurfaceWithoutPrincipal(t *testing.T) {
+	t.Parallel()
+
+	var got domain.Surface
+	var ok bool
+
+	table := buildTable(t)
+	// 只跑解析段，止步于一个读取 Surface 的处理器。
+	resolver := NewResolver(table)
+	probe := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s, ok2 := domain.SurfaceFrom(r.Context())
+		got, ok = s, ok2
+		w.WriteHeader(http.StatusOK)
+	})
+	resolver.Handle(probe).ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequest(http.MethodGet, "/console/api/v1/apps", nil))
+
+	if !ok || got != domain.SurfaceConsole {
+		t.Fatalf("surface = %q (found=%v), want console", got, ok)
 	}
 }
 
@@ -371,13 +427,13 @@ func TestPreservesIncomingTraceID(t *testing.T) {
 
 	table := buildTable(t)
 	p := &recordingProxy{}
-	mw := NewMiddleware(table, p)
+	h := chain(table, p)
 
 	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
 	r.Header.Set(HeaderTraceID, "upstream-trace-123")
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
 
-	mw.Handle(http.NotFoundHandler()).ServeHTTP(httptest.NewRecorder(), r)
+	h.ServeHTTP(httptest.NewRecorder(), r)
 
 	if got := p.lastReq.Header.Get(HeaderTraceID); got != "upstream-trace-123" {
 		t.Errorf("trace id = %q, want the incoming one preserved", got)

@@ -101,24 +101,24 @@ const (
 // 而不是一坨堆栈。调用方负责终止进程。
 func Load() (*Config, error) {
 	c := &Config{
-		Addr:               envOr(envAddr, ":8080"),
-		ReadTimeout:        15 * time.Second,
-		WriteTimeout:       0, // 流式响应不设写超时
-		JWTSecret:          os.Getenv(envJWTSecret),
-		JWTIssuer:          os.Getenv(envJWTIssuer),
-		JWTLeeway:          5 * time.Second,
-		TenantRate:         envIntOr(envTenantRate, 1000),
-		TenantWindow:       envDurationOr(envTenantWindow, time.Minute),
-		KeyRate:            envIntOr(envKeyRate, 200),
-		KeyWindow:          envDurationOr(envKeyWindow, time.Minute),
-		EndpointRate:       envIntOr(envEndpointRate, 300),
-		EndpointWindow:     envDurationOr(envEndpointWindow, time.Minute),
-		CORSConsoleOrigins: envListOr(envCORSConsoleOrigin, []string{"http://localhost:5173"}),
-		CORSServiceOrigins: envListOr(envCORSSvcOrigin, []string{}),
-		CORSEmbedOrigins:   envListOr(envCORSEmbedOrigin, []string{}),
+		Addr:                 envOr(envAddr, ":8080"),
+		ReadTimeout:          15 * time.Second,
+		WriteTimeout:         0, // 流式响应不设写超时
+		JWTSecret:            os.Getenv(envJWTSecret),
+		JWTIssuer:            os.Getenv(envJWTIssuer),
+		JWTLeeway:            5 * time.Second,
+		TenantRate:           envIntOr(envTenantRate, 1000),
+		TenantWindow:         envDurationOr(envTenantWindow, time.Minute),
+		KeyRate:              envIntOr(envKeyRate, 200),
+		KeyWindow:            envDurationOr(envKeyWindow, time.Minute),
+		EndpointRate:         envIntOr(envEndpointRate, 300),
+		EndpointWindow:       envDurationOr(envEndpointWindow, time.Minute),
+		CORSConsoleOrigins:   envListOr(envCORSConsoleOrigin, []string{"http://localhost:5173"}),
+		CORSServiceOrigins:   envListOr(envCORSSvcOrigin, []string{}),
+		CORSEmbedOrigins:     envListOr(envCORSEmbedOrigin, []string{}),
 		CORSAllowCredentials: envBoolOr(envCORSCredentials, false),
-		Upstreams:          parseUpstreams(os.Getenv(envUpstreams)),
-		Routes:             parseRoutes(os.Getenv(envRoutes)),
+		Upstreams:            parseUpstreams(os.Getenv(envUpstreams)),
+		Routes:               parseRoutes(os.Getenv(envRoutes)),
 	}
 
 	// 时钟偏移可配，其余超时保持默认。

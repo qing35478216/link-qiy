@@ -297,7 +297,7 @@ func TestIsPublicAddr(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		ip    string
+		ip     string
 		public bool
 	}{
 		{"8.8.8.8", true},

@@ -2,15 +2,18 @@
 //
 // 装配顺序即安全语义，不可随意调整：
 //
-//	① 恢复代理   —— 必须在最外层，任何未处理异常都不会逃出网关
-//	② CORS       —— 必须在鉴权之前：OPTIONS 预检不带凭证，
+//	① 路由解析   —— 只匹配路由并标记入口面，不做任何鉴权判断
+//	② CORS       —— 必须在鉴权之前：OPTIONS 预检不携带凭证，
 //	                若先过鉴权则所有跨域预检都会 401
 //	③ 鉴权       —— 确立 Principal 与租户
 //	④ 限流       —— 依赖 ③ 写入的 Principal 定租户配额
-//	⑤ 路由       —— 依赖 ③ 的租户上下文转发到上游
+//	⑤ 路由转发   —— 依赖 ③ 的租户上下文转发到上游
 //
-// ② 与 ⑤ 之间的顺序是"CORS 不与鉴权/路由耦合"的体现：
-// CORS 中间件只从 context 读 Surface（由 ⑤ 的路由写入），
+// 为什么 ① 与 ⑤ 拆成两段：入口面必须在鉴权前就能确定（② 的前提），
+// 而租户校验与转发必须看到 Principal（③ 的产物）。
+//
+// ② 与 ③⑤ 之间的顺序是"CORS 不与鉴权/路由耦合"的体现：
+// CORS 中间件只从 context 读 Surface（由 ① 写入），
 // 它不 import 鉴权与限流任一包，三者可各自单测。
 package server
 
@@ -75,7 +78,7 @@ func New(d Deps) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	routeMW, err := buildRouting(d.Cfg)
+	resolver, forwarder, err := buildRouting(d.Cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -95,16 +98,17 @@ func New(d Deps) (*Server, error) {
 		_, _ = w.Write([]byte(`{"status":"ready"}`))
 	})
 
-	// 装配链：鉴权 → 限流 → CORS → 路由。
+	// 装配链：路由解析 → CORS → 鉴权 → 限流 → 转发。
 	r.Group(func(api chi.Router) {
+		api.Use(resolver.Handle)
+		api.Use(corsMW.Handle)
 		api.Use(authMW.Handle)
 		api.Use(limitMW.Handle)
-		api.Use(corsMW.Handle)
-		api.Use(routeMW.Handle)
-		api.NotFound(routeMW.HandleUnmatched)
-		api.MethodNotAllowed(routeMW.HandleUnmatched)
-		// 兜底：所有已注册路由之外的方法也走同一个处理器。
-		api.Handle("/*", routeMW.Handle(http.NotFoundHandler()))
+		// 转发是终点而非中间件：没有匹配路由的请求已被 Resolver 拦成 404，
+		// 走到这里的请求一定已解析出上游。
+		api.NotFound(routing.HandleUnmatched)
+		api.MethodNotAllowed(routing.HandleUnmatched)
+		api.Handle("/*", forwarder.Handle(http.NotFoundHandler()))
 	})
 
 	return &Server{
@@ -236,8 +240,8 @@ func buildCORS(cfg *config.Config) (*cors.Middleware, error) {
 	return cors.NewMiddleware(reg), nil
 }
 
-// buildRouting 装配上游注册表、路由表与反代中间件。
-func buildRouting(cfg *config.Config) (*routing.Middleware, error) {
+// buildRouting 装配上游注册表、路由表，返回解析器与转发器两段。
+func buildRouting(cfg *config.Config) (*routing.Resolver, *routing.Middleware, error) {
 	table := routing.NewTable()
 
 	for _, uc := range cfg.Upstreams {
@@ -252,7 +256,7 @@ func buildRouting(cfg *config.Config) (*routing.Middleware, error) {
 			Surface:        surface,
 			RequiredScopes: uc.RequiredScopes,
 		}); err != nil {
-			return nil, fmt.Errorf("register upstream %q: %w", uc.Name, err)
+			return nil, nil, fmt.Errorf("register upstream %q: %w", uc.Name, err)
 		}
 	}
 
@@ -262,14 +266,14 @@ func buildRouting(cfg *config.Config) (*routing.Middleware, error) {
 			PathPrefix: rc.PathPrefix,
 			Upstream:   rc.Upstream,
 		}); err != nil {
-			return nil, fmt.Errorf("register route %s %s: %w", rc.Method, rc.PathPrefix, err)
+			return nil, nil, fmt.Errorf("register route %s %s: %w", rc.Method, rc.PathPrefix, err)
 		}
 	}
 
 	if len(cfg.Routes) == 0 {
-		return nil, errors.New("server: no routes registered")
+		return nil, nil, errors.New("server: no routes registered")
 	}
-	return routing.NewMiddleware(table, proxy.New()), nil
+	return routing.NewResolver(table), routing.NewMiddleware(proxy.New()), nil
 }
 
 // ListenAndServe 启动网关。

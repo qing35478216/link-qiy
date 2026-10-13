@@ -8,6 +8,7 @@
 package routing
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
@@ -127,6 +128,33 @@ func (t *Table) Lookup(method, path string) (Upstream, Route, bool) {
 	return bestUpstream, bestRoute, found
 }
 
+// LookupAnyMethod 按路径匹配路由，忽略 HTTP 方法。
+//
+// 专供 OPTIONS 预检使用：预检请求的实际方法写在
+// Access-Control-Request-Method 头里，方法本身恒为 OPTIONS，
+// 若按方法匹配会全部落空，导致跨域预检一律 404。
+func (t *Table) LookupAnyMethod(path string) (Upstream, Route, bool) {
+	var (
+		bestUpstream Upstream
+		bestRoute    Route
+		found        bool
+		bestLen      int
+	)
+	for _, r := range t.routes {
+		if !strings.HasPrefix(path, r.PathPrefix) {
+			continue
+		}
+		if len(r.PathPrefix) > bestLen {
+			u, ok := t.upstreams[r.Upstream]
+			if !ok {
+				continue
+			}
+			bestUpstream, bestRoute, bestLen, found = u, r, len(r.PathPrefix), true
+		}
+	}
+	return bestUpstream, bestRoute, found
+}
+
 // Upstreams 返回已注册上游名，按字典序保证输出稳定。
 func (t *Table) Upstreams() []string {
 	out := make([]string, 0, len(t.upstreams))
@@ -166,25 +194,84 @@ type Proxy interface {
 	Serve(w http.ResponseWriter, r *http.Request, u Upstream)
 }
 
-// Middleware 是路由中间件。
-type Middleware struct {
+// Resolver 只做"匹配路由 + 标记入口面"，不做任何鉴权判断。
+//
+// 拆出独立阶段的原因：入口面必须在鉴权之前就能确定——
+// OPTIONS 预检不携带凭证，若 CORS 排在鉴权之后，
+// 所有跨域预检都会 401，浏览器直接判定跨域失败（实测已验证）。
+// 所以装配链是：Resolve → CORS → 鉴权 → 限流 → Forward。
+type Resolver struct {
 	table *Table
+}
+
+// NewResolver 组装路由解析器。
+func NewResolver(table *Table) *Resolver { return &Resolver{table: table} }
+
+// matchedKey 是匹配结果在 context 中的键类型。
+// 定义在本包内——只有 routing 自己写自己读，无需放到 domain。
+type matchedKey struct{}
+
+// MatchedRoute 是一次匹配的结果。
+type MatchedRoute struct {
+	Upstream Upstream
+	Route    Route
+}
+
+// MatchedFrom 从 context 读取匹配结果。
+func MatchedFrom(ctx context.Context) (MatchedRoute, bool) {
+	m, ok := ctx.Value(matchedKey{}).(MatchedRoute)
+	return m, ok
+}
+
+// Handle 匹配路由，把入口面与上游写入 context，然后放行。
+// 无匹配路由直接 404——后续所有机制都不必再跑。
+func (res *Resolver) Handle(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, route, ok := res.lookup(r)
+		if !ok {
+			HandleUnmatched(w, r)
+			return
+		}
+		ctx := context.WithValue(r.Context(), matchedKey{}, MatchedRoute{Upstream: u, Route: route})
+		// 入口面写入最内层的 context 键，供 CORS 中间件读取——
+		// CORS 因此无需 import 本包，两者在装配层解耦。
+		ctx = domain.WithSurface(ctx, u.Surface)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// lookup 选择匹配方式：CORS 预检按路径匹配，其余按方法+路径匹配。
+func (res *Resolver) lookup(r *http.Request) (Upstream, Route, bool) {
+	if isPreflight(r) {
+		return res.table.LookupAnyMethod(r.URL.Path)
+	}
+	return res.table.Lookup(r.Method, r.URL.Path)
+}
+
+// isPreflight 判断是否为 CORS 预检请求。
+func isPreflight(r *http.Request) bool {
+	return r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != ""
+}
+
+// Middleware 是转发阶段：鉴权已在链路中完成，这里做租户与 scope 的出口校验后转发。
+type Middleware struct {
 	proxy Proxy
 }
 
-// NewMiddleware 组装路由中间件。
-func NewMiddleware(table *Table, proxy Proxy) *Middleware {
-	return &Middleware{table: table, proxy: proxy}
+// NewForwarder 组装转发中间件。
+func NewMiddleware(proxy Proxy) *Middleware {
+	return &Middleware{proxy: proxy}
 }
 
-// Handle 匹配路由并转发。
+// Handle 校验租户上下文与 scope，然后转发到上游。
 func (m *Middleware) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u, _, ok := m.table.Lookup(r.Method, r.URL.Path)
+		matched, ok := MatchedFrom(r.Context())
 		if !ok {
 			writeRoutingError(w, r, domain.ErrNoRoute)
 			return
 		}
+		u := matched.Upstream
 
 		p, hasPrincipal := domain.PrincipalFrom(r.Context())
 		if !hasPrincipal || p.TenantID == "" {
@@ -201,9 +288,7 @@ func (m *Middleware) Handle(next http.Handler) http.Handler {
 			}
 		}
 
-		// 注入租户上下文并标记入口面，供 CORS 与下游服务消费。
-		ctx := domain.WithSurface(r.Context(), u.Surface)
-		r = r.WithContext(ctx)
+		// 注入租户上下文，供下游服务消费（铁律 6）。
 		r.Header.Set(HeaderTenantID, p.TenantID)
 		r.Header.Set(HeaderSubjectID, p.SubjectID)
 		r.Header.Set(HeaderSurface, string(u.Surface))
@@ -215,8 +300,8 @@ func (m *Middleware) Handle(next http.Handler) http.Handler {
 	})
 }
 
-// HandleUnmatched 是无匹配路由时的兜底处理（供 chi 的 NotFound 使用）。
-func (m *Middleware) HandleUnmatched(w http.ResponseWriter, r *http.Request) {
+// HandleUnmatched 是无匹配路由时的兜底处理（404）。
+func HandleUnmatched(w http.ResponseWriter, r *http.Request) {
 	writeRoutingError(w, r, domain.ErrNoRoute)
 }
 
