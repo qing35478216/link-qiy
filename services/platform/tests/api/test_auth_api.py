@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -90,6 +91,16 @@ def test_patch_me(client: TestClient) -> None:
     assert body["avatarUrl"] == "https://x/y.png"
     # 再读一次确认持久化
     assert client.get("/me", headers=headers).json()["nickname"] == "阿石"
+
+
+@pytest.mark.parametrize("readonly_field", ["id", "plan", "agreementAcceptedAt"])
+def test_patch_me_rejects_readonly_fields(client: TestClient, readonly_field: str) -> None:
+    """契约 v0.1.1：id/plan/agreementAcceptedAt readOnly，携带即 422（防越权）。"""
+    tokens = _phone_login(client, "13800138000")
+    headers = {"Authorization": f"Bearer {tokens['accessToken']}"}
+    resp = client.patch("/me", json={readonly_field: "hacked"}, headers=headers)
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "VALIDATION_ERROR"
 
 
 def test_refresh_flow(client: TestClient) -> None:

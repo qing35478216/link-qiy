@@ -61,6 +61,11 @@ class UserProfileResponse(BaseModel):
 
 
 class UserProfileUpdateRequest(BaseModel):
+    """PATCH /me 请求体。契约 v0.1.1：UserProfile 的 id/plan/agreementAcceptedAt 为
+    readOnly（防越权改套餐/协议时间），extra="forbid" 保证携带即 422。"""
+
+    model_config = ConfigDict(extra="forbid")
+
     nickname: str | None = Field(default=None, max_length=64)
     avatarUrl: str | None = None
     phone: str | None = None
