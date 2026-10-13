@@ -18,6 +18,7 @@ const (
 	// HeaderAuthorization 标准认证头。
 	HeaderAuthorization = "Authorization"
 	// HeaderAPIKey 服务端到服务端 API Key 头。
+	//nolint:gosec // G101：这是 HTTP 头名称，不是凭据本身
 	HeaderAPIKey = "X-API-Key"
 	// HeaderTenantID 客户端声明的目标租户，网关必须与凭证租户比对（铁律 6）。
 	HeaderTenantID = "X-Tenant-Id"

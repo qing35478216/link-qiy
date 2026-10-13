@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -70,7 +71,7 @@ func signToken(t *testing.T, tenant string, scopes ...string) string {
 // do 发起一次经网关的请求。
 func do(t *testing.T, srv *Server, method, path, origin, token string) *httptest.ResponseRecorder {
 	t.Helper()
-	r := httptest.NewRequest(method, path, nil)
+	r := httptest.NewRequestWithContext(context.Background(), method, path, nil)
 	if origin != "" {
 		r.Header.Set("Origin", origin)
 	}
@@ -124,7 +125,7 @@ func TestPreflightSucceedsWithoutCredentials(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t, testConfig(t))
-	r := httptest.NewRequest(http.MethodOptions, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodOptions, "/service/v1/chat", nil)
 	r.Header.Set("Origin", "https://api.link-ai.tech")
 	r.Header.Set("Access-Control-Request-Method", "POST")
 	r.Header.Set("Access-Control-Request-Headers", "Authorization")
@@ -149,7 +150,7 @@ func TestCORSPoliciesAreSeparatedPerSurface(t *testing.T) {
 	const consoleOrigin = "https://console.link-ai.tech"
 
 	// service 入口面收到 console 来源 → 不应写 service 策略的允许头。
-	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
 	r.Header.Set("Origin", consoleOrigin)
 	r.Header.Set("Authorization", "Bearer "+signToken(t, "tenant-a"))
 	rec := httptest.NewRecorder()
@@ -160,7 +161,7 @@ func TestCORSPoliciesAreSeparatedPerSurface(t *testing.T) {
 	}
 
 	// console 入口面收到同一来源 → 应被允许。
-	r = httptest.NewRequest(http.MethodGet, "/console/api/v1/apps", nil)
+	r = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/console/api/v1/apps", nil)
 	r.Header.Set("Origin", consoleOrigin)
 	r.Header.Set("Authorization", "Bearer "+signToken(t, "tenant-a"))
 	rec = httptest.NewRecorder()
@@ -178,7 +179,7 @@ func TestEmbedAllowsAnyOrigin(t *testing.T) {
 	srv := newTestServer(t, testConfig(t))
 	const thirdParty = "https://third-party.example.com"
 
-	r := httptest.NewRequest(http.MethodPost, "/embed/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/embed/v1/chat", nil)
 	r.Header.Set("Origin", thirdParty)
 	r.Header.Set("Authorization", "Bearer "+signToken(t, "tenant-a"))
 	rec := httptest.NewRecorder()
@@ -199,7 +200,7 @@ func TestCrossTenantAccessRejected(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t, testConfig(t))
-	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
 	r.Header.Set("Authorization", "Bearer "+signToken(t, "tenant-a"))
 	r.Header.Set("X-Tenant-Id", "tenant-victim")
 
@@ -216,7 +217,7 @@ func TestMatchingTenantHeaderAllowed(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t, testConfig(t))
-	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
 	r.Header.Set("Authorization", "Bearer "+signToken(t, "tenant-a"))
 	r.Header.Set("X-Tenant-Id", "tenant-a")
 

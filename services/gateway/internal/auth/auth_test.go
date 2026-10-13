@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -40,7 +41,7 @@ func validPrincipal() domain.Principal {
 
 // bearerRequest 构造一个带 Bearer 令牌的请求。
 func bearerRequest(tenantHeader string) *http.Request {
-	r := httptest.NewRequest(http.MethodGet, "/console/api/v1/apps", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/console/api/v1/apps", nil)
 	r.Header.Set(HeaderAuthorization, "Bearer some-token")
 	if tenantHeader != "" {
 		r.Header.Set(HeaderTenantID, tenantHeader)
@@ -50,7 +51,7 @@ func bearerRequest(tenantHeader string) *http.Request {
 
 // apiKeyRequest 构造一个带 API Key 的请求。
 func apiKeyRequest() *http.Request {
-	r := httptest.NewRequest(http.MethodGet, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/service/v1/chat", nil)
 	r.Header.Set(HeaderAPIKey, "key-123")
 	return r
 }
@@ -79,7 +80,7 @@ func TestDetectKind(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			r := httptest.NewRequest(http.MethodGet, "/x", nil)
+			r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 			if tc.apiKey != "" {
 				r.Header.Set(HeaderAPIKey, tc.apiKey)
 			}
@@ -119,7 +120,7 @@ func TestAuthenticate_MissingCredential(t *testing.T) {
 	reg.Register(&stubAuthenticator{kind: domain.CredentialJWT, principal: validPrincipal()})
 	mw := NewMiddleware(reg, nil)
 
-	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	if _, err := mw.Authenticate(r); !errors.Is(err, domain.ErrMissingCredential) {
 		t.Fatalf("err = %v, want ErrMissingCredential", err)
 	}

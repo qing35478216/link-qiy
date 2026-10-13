@@ -149,13 +149,17 @@ func (g *Guard) ValidateParsed(ctx context.Context, u *url.URL) (string, error) 
 	host = strings.ToLower(strings.TrimSuffix(host, "."))
 
 	// 端口校验。
+	//
+	// 刻意用 strconv 严格解析数字而非 net.LookupPort：后者接受服务名
+	// （如 "http"、"redis"），且返回 int，转换到 uint16 可能溢出。
+	// 这里要求端口必须是 1-65535 的十进制数字。
 	port := uint16(80)
 	if u.Scheme == "https" {
 		port = 443
 	}
 	if ps := u.Port(); ps != "" {
-		parsed, perr := net.LookupPort("tcp", ps)
-		if perr != nil {
+		parsed, perr := strconv.ParseUint(ps, 10, 16)
+		if perr != nil || parsed == 0 {
 			return "", fmt.Errorf("%w: bad port %q", domain.ErrMalformedTarget, ps)
 		}
 		port = uint16(parsed)
@@ -235,11 +239,13 @@ func (g *Guard) DialContext(ctx context.Context, network, addr string) (net.Conn
 		return nil, fmt.Errorf("%w: bad addr %q", domain.ErrMalformedTarget, addr)
 	}
 
-	port, err := net.LookupPort("tcp", portStr)
-	if err != nil {
+	// 端口必须在允许列表内。用 uint32 解析后再收窄，避免 int→uint16 溢出。
+	port64, err := strconv.ParseUint(portStr, 10, 32)
+	if err != nil || port64 == 0 || port64 > 65535 {
 		return nil, fmt.Errorf("%w: bad port %q", domain.ErrMalformedTarget, portStr)
 	}
-	if _, ok := g.allowedPorts[uint16(port)]; !ok {
+	port := uint16(port64)
+	if _, ok := g.allowedPorts[port]; !ok {
 		return nil, fmt.Errorf("%w: port %d not allowed", domain.ErrForbiddenTarget, port)
 	}
 

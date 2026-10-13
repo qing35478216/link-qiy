@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -29,7 +30,7 @@ func TestServeForwardsToUpstream(t *testing.T) {
 	p := New()
 	u := routing.Upstream{Name: "echo", Target: upstream.URL, Surface: "service"}
 
-	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", strings.NewReader(`{"q":"hi"}`))
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", strings.NewReader(`{"q":"hi"}`))
 	rec := httptest.NewRecorder()
 	p.Serve(rec, r, u)
 
@@ -53,7 +54,7 @@ func TestServeStripsTraceparent(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	p := New()
-	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	r.Header.Set("traceparent", "00-fake-fake-01")
 	p.Serve(httptest.NewRecorder(), r, routing.Upstream{Name: "h", Target: srv.URL})
 
@@ -74,7 +75,7 @@ func TestServeSetsXForwardedFor(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	p := New()
-	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	p.Serve(httptest.NewRecorder(), r, routing.Upstream{Name: "h", Target: srv.URL})
 
 	if received.Get("X-Forwarded-For") == "" {
@@ -90,7 +91,7 @@ func TestServeInvalidTargetDegradesTo502(t *testing.T) {
 	t.Parallel()
 
 	p := New()
-	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	rec := httptest.NewRecorder()
 
 	// 不含 scheme，url.Parse 会失败。
@@ -107,7 +108,7 @@ func TestServeUnreachableUpstreamReturns502(t *testing.T) {
 
 	// 端口 1 上不会有服务在监听。
 	p := New()
-	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 	rec := httptest.NewRecorder()
 	p.Serve(rec, r, routing.Upstream{Name: "dead", Target: "http://127.0.0.1:1"})
 
@@ -149,7 +150,7 @@ func TestServeConcurrentSafe(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		go func() {
 			defer func() { done <- struct{}{} }()
-			r := httptest.NewRequest(http.MethodGet, "/x", nil)
+			r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil)
 			p.Serve(httptest.NewRecorder(), r, u)
 		}()
 	}

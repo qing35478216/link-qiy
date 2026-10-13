@@ -75,7 +75,7 @@ type RouteConfig struct {
 // 环境变量名。
 const (
 	envAddr              = "GATEWAY_ADDR"
-	envJWTSecret         = "GATEWAY_JWT_SECRET"
+	envJWTSecret         = "GATEWAY_JWT_SECRET" //nolint:gosec // G101：这是环境变量名，不是密钥值
 	envJWTIssuer         = "GATEWAY_JWT_ISSUER"
 	envJWTLeeway         = "GATEWAY_JWT_LEEWAY"
 	envTenantRate        = "GATEWAY_TENANT_RATE"

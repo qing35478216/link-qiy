@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -419,7 +420,7 @@ func TestHandleSetsRateLimitHeaders(t *testing.T) {
 
 	// 带上 Principal 的请求才能通过限流（鉴权在链路上游）。
 	newReq := func() *http.Request {
-		r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
+		r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
 		p := domain.Principal{TenantID: "tenant-a", SubjectID: "app-1", Kind: domain.CredentialJWT}
 		return r.WithContext(domain.WithPrincipal(r.Context(), p))
 	}
@@ -456,7 +457,7 @@ func TestHandleWithoutPrincipalReturns500(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
+	h.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", rec.Code)
@@ -481,7 +482,7 @@ func TestCustomEndpointFn(t *testing.T) {
 
 	p := domain.Principal{TenantID: "tenant-a", SubjectID: "app-1", Kind: domain.CredentialJWT}
 	for i, path := range []string{"/a", "/b", "/c"} {
-		r := httptest.NewRequest(http.MethodGet, path, nil)
+		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 		r = r.WithContext(domain.WithPrincipal(r.Context(), p))
 		d, err := mw.Evaluate(Subject{
 			TenantID: "tenant-a",

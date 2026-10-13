@@ -52,9 +52,12 @@ func main() {
 	logger.Info("gateway shutting down")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error("gateway shutdown failed", "error", err)
+	// 不用 defer cancel()：os.Exit 会跳过 defer。
+	// 这里是唯一的退出路径，直接 cancel 后再决定退出码。
+	shutdownErr := srv.Shutdown(ctx)
+	cancel()
+	if shutdownErr != nil {
+		logger.Error("gateway shutdown failed", "error", shutdownErr)
 		os.Exit(1)
 	}
 	logger.Info("gateway stopped")

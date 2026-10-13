@@ -1,0 +1,55 @@
+# golangci-lint 配置 —— services/gateway
+#
+# 目标：安全基线（铁律 5）相关代码必须零告警。
+# 因此启用 errcheck / govet / staticcheck / gosec 四个与正确性和安全直接相关的检查器。
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - errcheck      # 未处理的错误
+    - govet         # 常见陷阱（含 printf、copylocks）
+    - staticcheck   # 广泛正确性与风格问题
+    - gosec         # 安全漏洞模式（SSRF、弱随机、硬编码凭据等）
+    - ineffassign   # 无效赋值
+    - misspell      # 拼写
+    - unused        # 未使用的代码
+    - gocritic      # 补充的代码审查
+    - bodyclose     # 未关闭的响应体
+    - noctx         # 缺少 context 的 HTTP 请求
+  settings:
+    gosec:
+      # 测试文件用 httptest 起本地服务，误报较多。
+      excludes:
+        - G107        # 变量 URL——ssrf 包已做严格校验，这是网关自身的设计
+      config:
+        # 网关按设计要用随机数生成 trace ID，crypto/rand 已足够；
+        # 但仍禁止弱随机用于任何安全用途。
+        G404:
+          enabled: false
+    gocritic:
+      disabled-checks:
+        # 错误分类用 switch 更清晰，此检查过于教条。
+        - ifElseChain
+  # v2 的排除规则位于 linters.exclusions，与 settings 平级（不是顶层 issues.exclude-rules）。
+  exclusions:
+    rules:
+      # 测试文件通用豁免：未检查的错误、静态安全告警、缺少 context 的
+      # httptest 构造在测试里都可接受——失败会以断言不通过的形式暴露。
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+          - noctx
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: true

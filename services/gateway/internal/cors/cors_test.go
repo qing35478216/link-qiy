@@ -1,6 +1,7 @@
 package cors
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -125,7 +126,7 @@ func TestMiddlewareRespectsSurfaceFromContext(t *testing.T) {
 
 	// console 入口面 + console 来源 → 应写 CORS 头。
 	rec := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/console/api/v1/apps", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/console/api/v1/apps", nil)
 	r.Header.Set("Origin", "https://console.link-ai.tech")
 	r = r.WithContext(domain.WithSurface(r.Context(), domain.SurfaceConsole))
 	mw.Handle(echoHandler).ServeHTTP(rec, r)
@@ -136,7 +137,7 @@ func TestMiddlewareRespectsSurfaceFromContext(t *testing.T) {
 
 	// 同一入口面 + 陌生来源 → 不应写 CORS 头，但请求本身仍要正常响应。
 	rec = httptest.NewRecorder()
-	r = httptest.NewRequest(http.MethodGet, "/console/api/v1/apps", nil)
+	r = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/console/api/v1/apps", nil)
 	r.Header.Set("Origin", "https://evil.example.com")
 	r = r.WithContext(domain.WithSurface(r.Context(), domain.SurfaceConsole))
 	mw.Handle(echoHandler).ServeHTTP(rec, r)
@@ -171,7 +172,7 @@ func TestPreflightShortCircuits(t *testing.T) {
 	})
 
 	rec := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodOptions, "/embed/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodOptions, "/embed/v1/chat", nil)
 	r.Header.Set("Origin", "https://third-party.example.com")
 	r.Header.Set("Access-Control-Request-Method", "POST")
 	r.Header.Set("Access-Control-Request-Headers", "Content-Type")
@@ -209,7 +210,7 @@ func TestPreflightRejectsDisallowedHeader(t *testing.T) {
 
 	// 请求一个未在白名单里的头。
 	rec := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodOptions, "/console/api/v1/apps", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodOptions, "/console/api/v1/apps", nil)
 	r.Header.Set("Origin", "https://console.link-ai.tech")
 	r.Header.Set("Access-Control-Request-Method", "GET")
 	r.Header.Set("Access-Control-Request-Headers", "X-Evil-Header")
@@ -236,7 +237,7 @@ func TestNoSurfaceInContextMeansNoCORS(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/anything", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/anything", nil)
 	r.Header.Set("Origin", "https://any.example.com")
 
 	NewMiddleware(reg).Handle(echoHandler).ServeHTTP(rec, r)
@@ -261,7 +262,7 @@ func TestUnregisteredSurfaceMeansNoCORS(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/service/v1/chat", nil)
 	r.Header.Set("Origin", "https://any.example.com")
 	r = r.WithContext(domain.WithSurface(r.Context(), domain.SurfaceService))
 

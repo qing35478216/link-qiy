@@ -126,25 +126,15 @@ func (a *Authenticator) Authenticate(r *http.Request) (domain.Principal, error) 
 }
 
 // classifyParseError 把 jwt 库的错误翻译为领域错误。
+//
+// 对外只暴露两种语义：过期（可重试）与无效（不可重试）。
+// 签名错、结构错、签发方不符一律归为 ErrInvalidCredential，
+// 不向调用方泄露"具体哪一项错了"，避免凭证状态探测。
 func classifyParseError(err error) error {
-	switch {
-	case errors.Is(err, jwt.ErrTokenExpired),
-		errors.Is(err, jwt.ErrTokenNotValidYet):
+	if errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet) {
 		return domain.ErrExpiredCredential
-	case errors.Is(err, jwt.ErrTokenSignatureInvalid),
-		errors.Is(err, jwt.ErrTokenMalformed),
-		errors.Is(err, jwt.ErrTokenUnverifiable),
-		errors.Is(err, jwt.ErrTokenRequiredClaimMissing),
-		errors.Is(err, jwt.ErrTokenInvalidClaims),
-		errors.Is(err, jwt.ErrTokenInvalidAudience),
-		errors.Is(err, jwt.ErrTokenInvalidIssuer),
-		errors.Is(err, jwt.ErrTokenInvalidSubject),
-		errors.Is(err, jwt.ErrTokenNotValidYet),
-		errors.Is(err, jwt.ErrTokenUsedBeforeIssued):
-		return domain.ErrInvalidCredential
-	default:
-		return domain.ErrInvalidCredential
 	}
+	return domain.ErrInvalidCredential
 }
 
 // readScopes 兼容字符串与字符串数组两种 scope 编码。

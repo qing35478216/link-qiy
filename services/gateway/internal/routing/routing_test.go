@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -165,7 +166,7 @@ func TestHandleInjectsTenantHeaders(t *testing.T) {
 	p := &recordingProxy{}
 	h := chain(table, p)
 
-	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
 
 	h.ServeHTTP(httptest.NewRecorder(), r)
@@ -201,7 +202,7 @@ func TestHandleSetsSurfaceInContext(t *testing.T) {
 	})
 	h := chain(table, capture)
 
-	r := httptest.NewRequest(http.MethodGet, "/console/api/v1/apps", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/console/api/v1/apps", nil)
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
 	h.ServeHTTP(httptest.NewRecorder(), r)
 
@@ -228,7 +229,7 @@ func TestHandleRejectsMissingTenant(t *testing.T) {
 	h := chain(table, p)
 
 	// 请求 context 里没有 Principal。
-	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, r)
 
@@ -248,7 +249,7 @@ func TestHandleRejectsEmptyTenant(t *testing.T) {
 	p := &recordingProxy{}
 	h := chain(table, p)
 
-	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("")))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, r)
@@ -283,7 +284,7 @@ func TestHandleEnforcesRequiredScopes(t *testing.T) {
 			proxy := &recordingProxy{}
 			h := chain(table, proxy)
 
-			r := httptest.NewRequest(http.MethodPost, "/internal/v1/models/invoke", nil)
+			r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/internal/v1/models/invoke", nil)
 			r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a", tc.scopes...)))
 
 			rec := httptest.NewRecorder()
@@ -307,7 +308,7 @@ func TestHandleNoRouteReturns404(t *testing.T) {
 	p := &recordingProxy{}
 	h := chain(table, p)
 
-	r := httptest.NewRequest(http.MethodGet, "/no/such/route", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/no/such/route", nil)
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, r)
@@ -325,7 +326,7 @@ func TestHandleUnmatched(t *testing.T) {
 	t.Parallel()
 
 	rec := httptest.NewRecorder()
-	HandleUnmatched(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
+	HandleUnmatched(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/x", nil))
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", rec.Code)
@@ -341,7 +342,7 @@ func TestResolverRejectsUnmatchedPath(t *testing.T) {
 	p := &recordingProxy{}
 	h := chain(buildTable(t), p)
 
-	r := httptest.NewRequest(http.MethodGet, "/no/such/path", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/no/such/path", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, r)
 
@@ -372,7 +373,7 @@ func TestResolverMarksSurfaceWithoutPrincipal(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	resolver.Handle(probe).ServeHTTP(httptest.NewRecorder(),
-		httptest.NewRequest(http.MethodGet, "/console/api/v1/apps", nil))
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/console/api/v1/apps", nil))
 
 	if !ok || got != domain.SurfaceConsole {
 		t.Fatalf("surface = %q (found=%v), want console", got, ok)
@@ -429,7 +430,7 @@ func TestPreservesIncomingTraceID(t *testing.T) {
 	p := &recordingProxy{}
 	h := chain(table, p)
 
-	r := httptest.NewRequest(http.MethodPost, "/service/v1/chat", nil)
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
 	r.Header.Set(HeaderTraceID, "upstream-trace-123")
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
 
