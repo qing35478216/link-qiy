@@ -472,6 +472,71 @@ def _enforces_agreement(op: dict[str, Any]) -> bool:
     return False
 
 
+def test_no_default_keyword_in_error_enums() -> None:
+    """铁律补充（主理人 T-016 裁决）：**错误响应**的枚举不得用 `default` 兜底。
+
+    为什么这条值得机器守：`default` 在 JSON Schema 里的语义是
+    「匹配不上任何 enum 值时都判定为合法」，于是**新增错误码会静默通过校验**。
+    而新增错误码恰恰是最需要被看见的变化——它通常意味着新增业务语义
+    或新增失败分支。用 default 兜底等于把这类变化藏起来。
+
+    正确写法：enum 穷举已知 code；确需允许扩展时用 `additionalProperties`
+    或显式的 unknown 分支兜底，但要让它在文档/测试里可见。
+
+    **作用域限定（实测踩坑后收紧）**：只管**错误响应**里的枚举。
+    请求参数的默认值是另一回事且正当——console-api 里
+    `/auth/wechat/qrcode` 与 `/auth/phone/sms-code` 的 `scene` 字段都有
+    `enum: [login, bind]` + `default: login`，那是「不传就用默认」的正常语义，
+    不属于「静默吞掉未知值」。首版规则没限定作用域，把这两处正当写法误报了，
+    说明守卫误报几次就没人看了——收窄比放宽正确。
+
+    这条此前只存在于主理人的口头裁决里。口头裁决的特点是三个月后没人记得，
+    而违反它的后果是静默的——所以落到机器守卫上。
+    """
+    import yaml
+
+    offenders: list[str] = []
+    for spec_name in ("console-api.yaml", "service-api.yaml", "runtime-events.yaml"):
+        path = OPENAPI_DIR / spec_name
+        if not path.exists():
+            continue
+        spec = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+        for route, item in (spec.get("paths") or {}).items():
+            if not isinstance(item, dict):
+                continue
+            for method, op in item.items():
+                if not isinstance(op, dict):
+                    continue
+                responses = op.get("responses")
+                if not isinstance(responses, dict):
+                    continue
+                for code, resp in responses.items():
+                    if not str(code).startswith(("4", "5")):
+                        continue
+                    stack = [(f"{method.upper()} {route} [{code}]", resp)]
+                    while stack:
+                        jp, node = stack.pop()
+                        if isinstance(node, dict):
+                            if "enum" in node and "default" in node:
+                                offenders.append(f"{spec_name} {jp}")
+                            for k, v in node.items():
+                                stack.append((f"{jp}/{k}", v))
+                        elif isinstance(node, list):
+                            for idx, sub in enumerate(node):
+                                stack.append((f"{jp}[{idx}]", sub))
+
+    assert not offenders, (
+        "错误响应中出现 enum + default 的组合：\n  " + "\n  ".join(offenders[:20]) + "\n"
+        "问题：`default` 让匹配不上的值（含未来新增的错误码）判定为合法，\n"
+        "新增错误码会静默通过校验——而那正是最需要被看见的变化。\n"
+        "改法：enum 穷举已知 code；需允许扩展时用 additionalProperties "
+        "或显式 unknown 分支兜底，不要藏在 default 里。\n"
+        "（请求参数的默认值正当，不受本规则约束）\n"
+        "（铁律来源：主理人 T-016 裁决）"
+    )
+
+
 def test_known_gaps_baseline_has_provenance() -> None:
     """缺口基线的每一条都必须写明来源工单与责任人。
 

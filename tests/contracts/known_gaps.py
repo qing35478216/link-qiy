@@ -68,6 +68,22 @@ GAP_TENANT_MISSING_STATUS_INCONSISTENT = "GAP-CONTRACT-005"
 #: 由 channel-engineer 在 T-008 独立发现并上报，与 GAP-CONTRACT-004 根因同类。
 GAP_IDENTITY_HEADERS_UNDEFINED = "GAP-CONTRACT-006"
 
+#: ── 何约补缺口时的写法约束（主理人 T-016 裁决，QA 侧记录以免后人来问我）────
+#:
+#: **禁止用 `default` 关键字**兜底未知错误码 / 未知取值。
+#:
+#: 理由：`default` 在 JSON Schema 里是「匹配不上任何 enum 时都算合法」，
+#: 于是**新增错误码会静默通过校验**——而新增错误码恰恰是最需要被看见的变化
+#: （新增错误码通常意味着新增业务语义或新增失败分支）。
+#:
+#: 正确写法（两条，按场景选）：
+#:   1. `enum` 穷举已知 code，不用 default；未知值由调用方显式处理
+#:   2. 确需允许扩展时用 `additionalProperties` 或显式的 `unknown` 分支兜底，
+#:      但要让它**在文档/测试里可见**，而不是藏在 default 里
+#:
+#: 同理适用于任何「枚举 + 兜底」的场景，不限于错误码。
+GAP_ENUM_NO_DEFAULT_RULE = "RULE-CONTRACT-001"
+
 #: 本基线登记的缺口。**只允许减少**：新增条目必须在此处登记 issue 出处。
 KNOWN_GAPS: dict[str, dict[str, str]] = {
     GAP_WRITE_OPS_MISSING_4XX: {
