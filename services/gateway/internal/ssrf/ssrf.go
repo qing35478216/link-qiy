@@ -334,14 +334,19 @@ func IsPublicAddr(a netip.Addr) bool {
 		return false
 	}
 
-	// CGNAT 100.64.0.0/10：不是 RFC1918，但同样不可公网路由。
-	if v4 := a.As4(); isCGNAT(v4) {
-		return false
+	// IPv4 专属段判断。As4 对 IPv6 会 panic，必须先判 Is4。
+	if a.Is4() {
+		v4 := a.As4()
+		// CGNAT 100.64.0.0/10：不是 RFC1918，但同样不可公网路由。
+		if isCGNAT(v4) {
+			return false
+		}
+		// 文档与保留段 192.0.2.0/24 / 198.51.100.0/24 / 203.0.113.0/24 / 240.0.0.0/4。
+		if isReservedV4(v4) {
+			return false
+		}
 	}
-	// 文档与保留段 192.0.2.0/24 / 198.51.100.0/24 / 203.0.113.0/24 / 240.0.0.0/4。
-	if v4 := a.As4(); isReservedV4(v4) {
-		return false
-	}
+
 	// IPv6 转换地址内嵌私网 IPv4 的绕过：6to4(2002::/16)、Teredro(2001::/32)、NAT64(64:ff9b::/96)。
 	if v4, ok := embeddedV4(a); ok && !IsPublicAddr(v4) {
 		return false
