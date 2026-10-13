@@ -11,7 +11,10 @@ const props = defineProps<{
   expandDepth: number;
 }>();
 
-const open = ref(props.depth < props.expandDepth);
+// 展开深度语义：expandDepth = 展开的容器层数，顶层键算第 1 层。
+// depth <= expandDepth 的容器默认展开，故 expandDepth=1 只见顶层键的直接子级，
+// expandDepth=2 再展开 variables 这类二级容器（其内部叶子才可见）。
+const open = ref(props.depth <= props.expandDepth);
 
 function isContainer(value: unknown): boolean {
   return typeof value === 'object' && value !== null;
