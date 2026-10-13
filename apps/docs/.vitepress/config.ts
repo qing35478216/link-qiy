@@ -56,7 +56,8 @@ export default defineConfig({
         },
       ],
     },
-    socialLinks: [{ icon: 'github', link: 'https://github.com/zhayujie/chatgpt-on-wechat' }],
+    // socialLinks 暂缺：原配置指向 zhayujie/chatgpt-on-wechat（无关第三方仓库，疑似模板残留）。
+    // 官方仓库地址需对照 link-ai.tech 实际信息核实后补充（邵宣恢复时处理）。
     footer: {
       message: 'LinkAI 文档中心',
       copyright: '© 2026 深圳极简未来科技有限公司',
