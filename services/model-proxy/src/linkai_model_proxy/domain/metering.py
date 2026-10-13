@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
 from linkai_model_proxy.domain.invocation import TokenUsage
@@ -103,16 +103,23 @@ class CreditCalculator:
       `credits = ceil(prompt_tokens/1000 * input_per_1k
                       + completion_tokens/1000 * output_per_1k) + credit_per_call`
 
-    用 `Decimal` 避免浮点误差导致的账单抖动；`ROUND_HALF_UP` 与多数厂商计费一致。
-    平台**不内置**"最佳定价"——价格来自模型目录，平台只做算术。
+    实现要点：
+    - 全程 `Decimal`（价格以 `str()` 构造，避开二进制浮点误差），
+      否则 0.1 这类价格会出现账单抖动；
+    - `ROUND_CEILING`：只要产生了消耗就至少记 1 积分，**绝不允许因取整而漏计**；
+    - `_NOISE_SCALE` 只用于吸收运算余数噪声，必须远细于真实计费粒度。
+      Phase 0 实测踩坑：初版取 1e-6，导致 GLM Flash（0.0001/1k）这类
+      极低单价在截断后变成 0 积分，等于免费调用。
     """
 
-    #: 每次调用至少消耗 0 积分（免费模型可以是 0）
+    #: 每次调用至少消耗的积分为 0（免费模型可以是 0）
     MIN_CREDITS: int = 0
 
-    def __init__(self, *, scale: Decimal = Decimal("0.000001")) -> None:
-        # 保留 6 位小数后再 ceiling，抵消 Decimal 乘法的余数噪声
-        self._scale = scale
+    #: 噪声吸收精度——远细于任何真实计费粒度
+    _NOISE_SCALE: Decimal = Decimal("0.000000001")
+
+    def __init__(self, *, scale: Decimal | None = None) -> None:
+        self._scale = scale or self._NOISE_SCALE
 
     def compute(self, price: ModelPrice, usage: TokenUsage) -> int:
         """按价格与用量折算积分（向上取整）。"""
@@ -123,7 +130,7 @@ class CreditCalculator:
         )
         total = raw + Decimal(price.credit_per_call)
         quantized = total.quantize(self._scale, rounding=ROUND_HALF_UP)
-        credits = int(quantized.to_integral_value(rounding="ROUND_CEILING"))
+        credits = int(quantized.to_integral_value(rounding=ROUND_CEILING))
         return max(credits, self.MIN_CREDITS)
 
     def with_credits(self, price: ModelPrice, usage: TokenUsage) -> TokenUsage:

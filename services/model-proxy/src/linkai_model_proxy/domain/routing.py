@@ -155,14 +155,13 @@ class ModelInvocationService:
             started = time.monotonic()
             try:
                 async for delta in self._stream_once(request, ctx, decision):
-                    if seq == 0:
-                        # 首片成功 → 记一次成功计量（终局 usage 由末片汇总）
-                        pass
                     seq += 1
                     yield delta
             except (ProviderCallError, ModelCallFailure) as exc:
                 latency = int((time.monotonic() - started) * 1000)
-                await self._emit_failure(request, ctx, decision, exc, latency, seq)
+                # 流式无同模型重试，attempt 恒为 1；已产出的分片数记入失败事件的
+                # error 语义之外（下游只需知道"流到一半断了"）
+                await self._emit_failure(request, ctx, decision, exc, latency, 1)
                 if seq > 0 or not FallbackPlanner.should_fallback(exc):
                     raise
                 errors.append((decision.card.code, exc))
