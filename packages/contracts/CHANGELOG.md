@@ -12,3 +12,9 @@
 约定：错误模型统一 `{ code, message, requestId, details }`；列表统一 cursor 分页；kebab-case 路径 / camelCase 字段 / 复数资源名；多租户经 `X-Tenant-Id` 头（公开登录类端点以 `security: []` 显式豁免）。
 
 已知留待 v0.2：工作流画布端点（node-registry 联动）、知识库管理端点（K-01~09）、计费/订单端点（B-04~06、R-01~03）、渠道管理端点（C-01~09）。
+
+## 工具链（2026-10-13，T-001-sdk，不涉及契约变更）
+
+- `scripts/generate.mjs` 实跑修复：orval v8 配置兼容；openapi-python-client 经 redocly bundle 单文件化（外部 `$ref` 会被静默跳过端点）后生成，`--overwrite` 支持重复运行
+- 新增 `scripts/openapi-python-client.config.yaml`：默认包名取自 `info.title`（含中文），覆盖为 ASCII 安全的 `link_ai_console` / `link-ai-console-client`
+- 产出：`packages/sdk-ts`（orval：console/service 双客户端 + 类型 + MSW handlers，axios 实例注入）、`packages/sdk-py`（openapi-python-client：httpx + pydantic v2）

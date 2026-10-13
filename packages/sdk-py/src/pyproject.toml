@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "link-ai-console-api管理面-client"
+name = "link-ai-console-client"
 version = "0.1.0"
 description = "A client library for accessing LinkAI Console API（管理面）"
 authors = []
 readme = "README.md"
 packages = [
-    { include = "link_ai_console_api管理面_client" },
+    { include = "link_ai_console" },
 ]
-include = ["link_ai_console_api管理面_client/py.typed"]
+include = ["link_ai_console/py.typed"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
