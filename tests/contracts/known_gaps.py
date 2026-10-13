@@ -64,9 +64,38 @@ GAP_TENANT_MISSING_STATUS_INCONSISTENT = "GAP-CONTRACT-005"
 #: 实测：packages/contracts/schemas/common.yaml 只有 X-Tenant-Id（第 25 行），
 #: X-User-Id / X-Trace-Id / X-Gateway-Surface 均无定义，全靠服务间口头约定。
 #: 后果：客户端可伪造这些头直连下游（T-008 已实测出 X-User-Id 穿透并修复），
-#: 但「哪些 X-* 归网关管」没有单一事实源，新��下游服务时必然漏加。
+#: 但「哪些 X-* 归网关管」没有单一事实源，新增下游服务时必然漏加。
 #: 由 channel-engineer 在 T-008 独立发现并上报，与 GAP-CONTRACT-004 根因同类。
 GAP_IDENTITY_HEADERS_UNDEFINED = "GAP-CONTRACT-006"
+
+#: 网关未剥离客户端凭证头（Authorization / Cookie / Proxy-Authorization）。
+#:
+#: **为什么独立编号而不并入006**：根因虽同为「契约没定义」，但影响面更重——
+#: 006 是「身份头没定义」（契约缺一份清单）；本条是「凭证头**本就必须剥离**
+#: 却没剥离」，属实现层安全缺陷而非契约缺项。何约改 common.yaml 不会自动
+#: 让 T-008 的 routing.go 安全，这正是本项目已吃过的亏（契约改了但没人改实现）。
+#: 因此处置路径不同：006 是「补契约清单」，本条是「契约 + 实现双改」，
+#: 必须各自独立验收，故独立编号并交叉引用 006。
+#:
+#: 实测（发现人 qa-reviewer，2026-10-13；channel-engineer 在 T-008 独立复现确认）：
+#: 客户端 `Authorization: Bearer client-original-jwt` 与 `Cookie: session=abc123`
+#: 原样到达下游——Go 侧 `httputil.ReverseProxy` 默认转发所有头，
+#: `routing.go` / `proxy.go` 全文检索 `Authorization` 零命中。
+#:
+#: 后果：**鉴权双重入口**。网关已完成鉴权与配额裁决，但下游若自行校验，
+#: 看到的是客户端原始凭证而非网关的裁决结论——可能出现
+#: 「网关已封禁/限流，下游却按自己的判断放行」。这不是冗余校验问题，
+#: 而是下游可能推翻网关的裁决。
+#:
+#: 修复与回归防护（T-008 commit 6899e88）：
+#:   -新增 `clientCredentialHeaders`，在 `sanitizeIdentityHeaders` 中一并剥离，
+#:     下游只认网关注入的身份头，网关成为唯一鉴权决策点；
+#:   - 回归用例：`TestStripsClientCredentialHeaders`（含「剥离凭证头不影响
+#:     网关注入的身份头」的反向断言，防止修过头把该注入的也删了）、
+#:     `TestLegacyIdentityHeaderStillStripped`（防后人「清理无用代码」时删掉剥离逻辑）。
+#:   - 注意：契约侧尚未定义「网关应剥离哪些头」，删除上述任一用例都会让
+#:     回归防护消失——这是本条必须留在缺口基线里的理由。
+GAP_CLIENT_CREDENTIAL_HEADERS_NOT_STRIPPED = "GAP-CONTRACT-007"
 
 #: ── 何约补缺口时的写法约束（主理人 T-016 裁决，QA 侧记录以免后人来问我）────
 #:
@@ -136,6 +165,22 @@ KNOWN_GAPS: dict[str, dict[str, str]] = {
                   "且「新下游服务该纳管哪些头」没有单一事实源，必然漏加。",
         "raised_in": "T-008（channel-engineer 上报）；T-010 登记为契约层缺口",
         "owner": "Contract Engineer（何约）",
+        "severity": "blocker-for-phase1",
+    },
+    GAP_CLIENT_CREDENTIAL_HEADERS_NOT_STRIPPED: {
+        "title": "网关未剥离客户端凭证头（Authorization/Cookie/Proxy-Authorization）",
+        "detail": "客户端 Authorization 与 Cookie 原样到达下游"
+                  "（httputil.ReverseProxy 默认转发所有头；routing.go/proxy.go "
+                  "全文检索 Authorization 零命中）。形成鉴权双重入口——"
+                  "网关已裁决凭证状态，下游看到的却是客户端原始凭证，"
+                  "可能推翻网关的封禁/限流结论。"
+                  "实现侧已修（T-008 6899e88，回归用例 "
+                  "TestStripsClientCredentialHeaders / "
+                  "TestLegacyIdentityHeaderStillStripped）；"
+                  "契约侧仍缺「网关应剥离哪些头」的声明。",
+        "raised_in": "T-008 实测（发现路径）；发现人 qa-reviewer 主动发现"
+                     "（超出其工单范围），channel-engineer 独立复现确认并修复",
+        "owner": "Contract Engineer（何约）+ T-008 实现侧",
         "severity": "blocker-for-phase1",
     },
 }
