@@ -187,9 +187,10 @@ def test_recover_stale_ignores_fresh_running(mgr):
 def test_due_retries(mgr):
     import time
     mgr.register("t", "k", max_retries=3)
-    mgr.fail("t", "503 service unavailable")
+    rec = mgr.fail("t", "503 service unavailable")
     assert mgr.due_retries() == []                        # 退避中，没到期
-    time.sleep(2.2)                                       # base=2s 首退避已过
+    # 睡到该任务自己的 next_retry_at（退避带抖动，不能假设固定 2s——flaky 修复）
+    time.sleep(max(0.0, rec.next_retry_at - time.time()) + 0.1)
     assert [r.id for r in mgr.due_retries()] == ["t"]
 
 

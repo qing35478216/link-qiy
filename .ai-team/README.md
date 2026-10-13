@@ -6,6 +6,7 @@
 
 ```
 .ai-team/
+├── INSTRUCTIONS.md   # 团队常驻指令配置（粘贴到专家对话开头，含状态快照+派单波次+铁律）
 ├── roles/           # 12 个角色提示词（工具无关通用版，供 Codex/Claude Code/Cursor 等外部智能体使用）
 │   ├── 01-orchestrator.md          # 总编排
 │   ├── 02-contract-engineer.md     # 契约工程师

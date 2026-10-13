@@ -30,6 +30,7 @@ coverage/
 htmlcov/
 .coverage
 .pytest_cache/
+.hypothesis/          # schemathesis/hypothesis 属性测试的样例缓存（T-010 引入）
 .mypy_cache/
 .ruff_cache/
 junit.xml
@@ -69,3 +70,6 @@ wt-T-*
 
 # task-runner 运行时进程表
 .ai-team/runtime/
+
+# 用户原始文档目录（docs/ 与 linkai-screenshots/ 的重复副本，仅本地留存）
+LinkAI复刻工程文档/

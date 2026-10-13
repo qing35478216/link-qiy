@@ -1,0 +1,6 @@
+{
+  "title": "页面不存在",
+  "description": "你访问的页面可能已被移动或删除。",
+  "primaryCta": { "label": "返回首页", "href": "/", "variant": "primary" },
+  "secondaryCta": { "label": "查看文档中心", "href": "https://docs.link-ai.tech/", "variant": "secondary" }
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="LinkAI">
+  <rect width="32" height="32" rx="7" fill="#2E6BE6" />
+  <path
+    d="M16 7.5l2.1 5.4 5.4 2.1-5.4 2.1L16 22.5l-2.1-5.4L8.5 15l5.4-2.1L16 7.5z"
+    fill="#fff"
+  />
+  <circle cx="24" cy="23" r="2" fill="#fff" fill-opacity=".85" />
+</svg>
