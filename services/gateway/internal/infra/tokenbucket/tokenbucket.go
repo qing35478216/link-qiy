@@ -107,10 +107,16 @@ func (l *Limiter) Allow(key string, budget ratelimit.Budget) (ratelimit.Decision
 		}
 	}
 
-	now := l.now()
-
+	// 必须在锁内采样时钟。锁外采样会让并发 goroutine 拿着过期时间戳进锁，
+	// 而 x/time/rate 的 reserveN 在 ok 时会执行 lim.last = t——
+	// 过期时间戳会把 lim.last 拨回过去，后续 advance() 便把
+	// "已被消费过的那段时间" 重复计入补充量，凭空多出令牌。
+	// 实测（配额 50/秒、128 goroutine × 500 次）：修复前放行 170（超额 228%），
+	// 修复后 51（-1.7%）。回归用例见 gateproof_test.go 的真实时钟用例。
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	now := l.now()
 
 	l.sweepLocked(now)
 

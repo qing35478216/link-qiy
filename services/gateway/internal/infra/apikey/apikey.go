@@ -5,10 +5,10 @@ package apikey
 
 import (
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/linkai/gateway/internal/auth"
@@ -106,7 +106,13 @@ func HashKey(raw string) string {
 
 // MemoryStore 是内存 Store，用于骨架阶段与单测。
 // 生产部署应换成接 Redis 的实现，接口不变。
+//
+// 并发安全：Key 校验发生在每个请求的鉴权路径上（读），
+// 而 Key 的签发/吊销（写）来自管理接口。二者并发时无锁 map 会
+// 触发 Go 的 `concurrent map writes` fatal error——直接崩进程，
+// 不是可恢复的错误。故用 RWMutex 保护。
 type MemoryStore struct {
+	mu   sync.RWMutex
 	keys map[string]KeyRecord
 }
 
@@ -117,11 +123,15 @@ func NewMemoryStore() *MemoryStore {
 
 // Add 登记一条 Key 记录。
 func (s *MemoryStore) Add(rec KeyRecord) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.keys[rec.KeyHash] = rec
 }
 
 // Lookup 实现 Store。
 func (s *MemoryStore) Lookup(keyHash string) (*KeyRecord, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	rec, ok := s.keys[keyHash]
 	if !ok {
 		return nil, nil
@@ -131,5 +141,15 @@ func (s *MemoryStore) Lookup(keyHash string) (*KeyRecord, error) {
 	return &out, nil
 }
 
-// 断言恒定时间比较在等值与不等值两种情况下行为正确。
-var _ = subtle.ConstantTimeCompare
+// Revoke 吊销一条 Key（软删除，保留记录以便审计）。
+func (s *MemoryStore) Revoke(keyHash string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rec, ok := s.keys[keyHash]; ok {
+		rec.Revoked = true
+		s.keys[keyHash] = rec
+	}
+}
+
+// 编译期断言：MemoryStore 必须满足 Store 接口。
+var _ Store = (*MemoryStore)(nil)

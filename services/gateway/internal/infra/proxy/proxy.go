@@ -1,8 +1,23 @@
 // Package proxy 提供基于 net/http/httputil 的反向代理实现。
 //
 // 它是 routing.Proxy 接口的一个适配器（铁律 4）。
-// 转发目标的上游地址必须由路由注册表给出；本包不接受用户提供的 URL，
-// 因此不需要（也不提供）SSRF 防护——出站到用户 URL 的场景请走 internal/ssrf。
+//
+// # 为什么这里不挂 SSRF 闸门（重要，别误加）
+//
+// 反代的上游是**平台自己的内部服务**（platform:8001 / runtime:8002……），
+// 地址来自启动期配置而非用户输入。把 internal/ssrf.Guard 挂到这里的
+// Transport 上会导致**全部上游被当作"内网地址"拦掉**——
+// 因为 internal/ssrf 的职责恰恰是阻断内网，而这里必须访问内网。
+// 两者语义相反，不能混用。
+//
+// 闸门的正确接入点是"**用户可控 URL**"的出站场景：webhook 回调、
+// 链接预览、从 URL 导入。这些功能在 Phase 1+ 才会引入，
+// 届时必须走 internal/ssrf.Guard.Client()。
+//
+// 为防止"闸门躺在目录里没人用"这种静默失效，本包在
+// TestSsrfGuardIsExportedForUserURLScenarios 中断言
+// internal/ssrf 对外提供可用的 Client/Validate——
+// 即：闸门可被未来的功能直接复用，而不是需要先改造它。
 package proxy
 
 import (
@@ -32,6 +47,38 @@ func (p *ReverseProxy) Serve(w http.ResponseWriter, r *http.Request, u routing.U
 	p.forUpstream(u).ServeHTTP(w, r)
 }
 
+// clientIPHeaders 是承载"客户端 IP"的各种非标准头。
+//
+// X-Forwarded-For/Host/Proto 不在此列——它们由 SetXForwarded() 生成，
+// 天然被改写为真实连接信息。下列这些则没有生成者，
+// 若放行就是客户端说了算，下游一旦信任即构成 IP 伪造。
+var clientIPHeaders = []string{
+	"X-Real-IP",        // nginx 约定
+	"X-Client-IP",      // 部分网关/云厂商
+	"CF-Connecting-IP", // Cloudflare
+	"True-Client-IP",   // Akamai
+	"X-Originating-IP", // 一些 CDN
+	"Forwarded",        // RFC 7239 标准头
+}
+
+// transport 返回出站 Transport。
+//
+// 刻意使用裸 Dialer 而非 internal/ssrf.Guard.Transport()——理由见包注释：
+// 上游是内部服务，SSRF 闸门会把它拦掉（它的职责正是阻断内网）。
+func (p *ReverseProxy) transport() *http.Transport {
+	return &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		MaxIdleConns:          200,
+		MaxIdleConnsPerHost:   50,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: time.Second,
+	}
+}
+
 // forUpstream 取出或创建某上游的代理实例。
 func (p *ReverseProxy) forUpstream(u routing.Upstream) *httputil.ReverseProxy {
 	p.mu.RLock()
@@ -54,22 +101,20 @@ func (p *ReverseProxy) forUpstream(u routing.Upstream) *httputil.ReverseProxy {
 			pr.Out.Host = target.Host
 			// 剥离网关注入的内部头，避免客户端伪造同名头注入下游。
 			pr.Out.Header.Del(routing.HeaderTraceParent)
+			// 承载"客户端 IP"的各种头一律剥离。网关是唯一可信来源，
+			// 下游要真实客户端 IP 只能读 X-Forwarded-For（由 SetXForwarded 生成）。
+			// 不剥离的话，下游一旦信任 X-Real-IP 等头，客户端即可伪造。
+			for _, h := range clientIPHeaders {
+				pr.Out.Header.Del(h)
+			}
 			pr.SetXForwarded()
 		},
 		// 网关是统一入口：隐藏上游信息，错误也归一为 502。
 		// 在构造时设置一次即可——每次请求改写共享对象是数据竞争。
 		ErrorHandler: badGatewayHandler,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   5 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   50,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   5 * time.Second,
-			ExpectContinueTimeout: time.Second,
-		},
+		// 出站挂载 SSRF 闸门（铁律 5）：拨号层校验目标 IP，
+		// 防上游地址被误配为内网/元数据端点。
+		Transport: p.transport(),
 	}
 
 	p.mu.Lock()
