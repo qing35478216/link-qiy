@@ -16,13 +16,15 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@linkai/sdk-ts/console": ["../packages/sdk-ts/src/console.ts"],
-      "@linkai/sdk-ts/service": ["../packages/sdk-ts/src/service.ts"],
-      "@linkai/sdk-ts/msw/console": ["../packages/sdk-ts/src/console.msw.ts"],
-      "@linkai/sdk-ts/msw/service": ["../packages/sdk-ts/src/service.msw.ts"],
-      "@linkai/ui": ["../packages/ui/src/index.ts"],
-      "@linkai/ui/tokens.css": ["../packages/ui/src/styles/tokens.css"]
+      "@linkai/sdk-ts/console": ["../../packages/sdk-ts/src/console.ts"],
+      "@linkai/sdk-ts/models/console": ["../../packages/sdk-ts/src/models/console/index.ts"],
+      "@linkai/sdk-ts/models/service": ["../../packages/sdk-ts/src/models/service/index.ts"],
+      "@linkai/sdk-ts/service": ["../../packages/sdk-ts/src/service.ts"],
+      "@linkai/sdk-ts/msw/console": ["../../packages/sdk-ts/src/console.msw.ts"],
+      "@linkai/sdk-ts/msw/service": ["../../packages/sdk-ts/src/service.msw.ts"],
+      "@linkai/ui": ["../../packages/ui/src/index.ts"],
+      "@linkai/ui/tokens.css": ["../../packages/ui/src/styles/tokens.css"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts"]
 }
