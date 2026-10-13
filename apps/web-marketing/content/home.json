@@ -1,7 +1,7 @@
 {
   "hero": {
-    "title": "一站式 AI 智能体平台",
-    "titleHighlight": "AI 智能体",
+    "title": "一站式",
+    "titleHighlight": "AI 智能体平台",
     "subtitle": "打造 7×24h 在线智能客服。平台做框架，用户做创造——模型、提示词、知识、工具、流程、渠道、分发、变现，一站式就绪。",
     "ctas": [
       { "label": "立即体验", "href": "https://link-ai.tech/console", "variant": "primary" },
