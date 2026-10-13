@@ -1,0 +1,23 @@
+{
+  "$comment": "黄金集基线（地板线）。只能由人工确认后更新，QA 无权自行抬基线。每条必须带 commit sha 与用例集版本，否则视为无效基线。",
+  "schemaVersion": "1.0",
+  "updatedAt": "2026-10-13",
+  "updatedBy": "T-010（QA 基础设施初始化）",
+  "commitSha": "PLACEHOLDER",
+  "commitShaNote": "首次评分接入后（T-004 runtime 落地）由人工填写实际 commit。当前无输出通道，不存在有意义的分数。",
+  "caseSetVersion": "0.1.0-skeleton",
+  "caseSetNote": "骨架阶段：9 条样例（含 3 条对抗），尚未填满 50 条/框架。见 README「当前状态」。",
+  "status": "NOT_ESTABLISHED",
+  "statusNote": "Phase 0 无模型输出通道（runtime/knowledge 未落地），无法产出有意义的分数。baseline 处于未建立状态——门禁链据此把黄金集标记为 SKIP 而非 PASS。**不允许在此填 0.0 充数**：0 分基线会让任何真实退化都显得是「持平」。",
+  "frameworks": {},
+  "thresholds": {
+    "failDropRatio": 0.05,
+    "warnDropRatio": 0.02,
+    "consecutiveDropEscalate": true,
+    "consecutiveDropNote": "连续两次下降即升级人类（人类五检查点之一）。QA 不得自行判定「跌幅可接受」。",
+    "adversarialVeto": true,
+    "adversarialVetoNote": "任一对抗用例命中 mustNotInclude 立即 FAIL，无豁免。"
+  },
+  "history": [],
+  "historyNote": "每次评测追加一条：{ date, commitSha, frameworks: {fw: score}, verdict }。连续两次下降的判定依赖这个数组。"
+}
