@@ -165,6 +165,19 @@ go run ./cmd/gateway
 | 新后端服务 | `Table.RegisterUpstream` + `Table.RegisterRoute` |
 | 新 CORS 入口面 | `cors.NewPolicy` + `Registry.Register` |
 
+### ⚠️ 限流为单实例语义（部署前必读）
+
+**当前限流状态存在进程内存中，多副本部署时配额会放大 N 倍。**
+
+单实例内是正确的（`-race` + 并发计数断言已验证不超发）；
+横向扩容后每个副本各算各的，这是部署拓扑的必然结果，不是代码缺陷。
+
+**多副本部署前必须**实现 Redis 版 `ratelimit.Limiter`（Phase 1）。
+接口已抽象好，替换实现不动中间件与多维度聚合逻辑。
+
+算法内核用的是官方 `golang.org/x/time/rate`（不自研），
+自研部分仅为它之外的键空间管理与领域决策转换——理由见工单 ADR 节。
+
 ---
 
 ## 七、开发
