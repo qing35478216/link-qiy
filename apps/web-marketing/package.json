@@ -1,0 +1,29 @@
+{
+  "name": "@linkai/web-marketing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LinkAI 营销站群（纯 SSG：首页 / 产品门户 / 超级助理 / 定价 / 404），内容全部 CMS 化配置",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.35",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.7.2"
+  }
+}

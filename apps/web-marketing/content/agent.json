@@ -1,0 +1,54 @@
+{
+  "hero": {
+    "badge": "LinkAI 超级AI助理 · SuperAgent",
+    "title": "你的专属",
+    "titleHighlight": "超级AI助理",
+    "description": "面向个人与企业的专属 AI 助理，能自主规划任务、调用工具与技能，依靠记忆与知识不断成长，还能按岗位组建多智能体团队，分工协作完成复杂工作。",
+    "ctas": [
+      { "label": "云端一键使用", "href": "https://link-ai.tech/console", "variant": "primary" },
+      { "label": "下载桌面客户端", "href": "#", "variant": "secondary" }
+    ],
+    "docLink": { "label": "使用文档 →", "href": "https://docs.link-ai.tech/", "variant": "text" },
+    "stats": [
+      { "value": "100+", "label": "主流大模型" },
+      { "value": "10,000+", "label": "可安装技能" },
+      { "value": "10+", "label": "渠道接入" },
+      { "value": "47k+", "label": "CowAgent GitHub Star" }
+    ]
+  },
+  "capabilities": [
+    { "title": "持久记忆", "description": "越用越懂你：长期记忆 + 个人知识库，沉淀偏好与上下文", "icon": "brain" },
+    { "title": "自主规划", "description": "自主拆解复杂目标，智能规划执行步骤，多步任务自动推进", "icon": "plan" },
+    { "title": "多模态交互", "description": "文本、语音、图像输入输出，技能扩展即装即用", "icon": "multimodal" },
+    { "title": "7×24 运行", "description": "云端常驻运行，定时任务与主动消息，全天候在线", "icon": "clock" }
+  ],
+  "sections": [
+    {
+      "title": "按岗位组建多智能体团队",
+      "subtitle": "分工协作完成复杂工作",
+      "bullets": [
+        "按岗位创建不同数字员工，各司其职",
+        "超级智能体按用户意图调度不同助理",
+        "团队记忆与知识共享，协作不断档"
+      ]
+    },
+    {
+      "title": "技能扩展，无限可能",
+      "subtitle": "10,000+ 可安装技能",
+      "bullets": [
+        "内置丰富技能，覆盖办公、开发、运营场景",
+        "支持自定义技能与 MCP 工具接入",
+        "技能市场持续更新，即装即用"
+      ]
+    },
+    {
+      "title": "全渠道触达",
+      "subtitle": "10+ 渠道接入",
+      "bullets": [
+        "云端一键使用，无需安装",
+        "桌面客户端深度集成操作系统",
+        "微信、企微、钉钉、飞书消息渠道托管"
+      ]
+    }
+  ]
+}

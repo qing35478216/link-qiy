@@ -1,0 +1,82 @@
+{
+  "hero": {
+    "title": "版本与定价",
+    "subtitle": "从免费的基础版到企业级定制，总有一档适合你"
+  },
+  "planTabs": { "upgrade": "版本升级", "credits": "积分充值" },
+  "plans": [
+    {
+      "key": "basic",
+      "name": "基础版",
+      "price": "¥0/年",
+      "tagline": "先人一步体验 AI 生产力",
+      "cta": { "label": "开始使用", "href": "https://link-ai.tech/console", "variant": "primary" }
+    },
+    {
+      "key": "standard",
+      "name": "标准版",
+      "price": "¥199/月",
+      "originalPrice": "¥298",
+      "badge": "限时特惠",
+      "billingOptions": [
+        { "label": "按月付费" },
+        { "label": "按年付费", "note": "优惠两月" }
+      ],
+      "tagline": "适合开发者和小型团队",
+      "cta": { "label": "开始使用", "href": "https://link-ai.tech/console", "variant": "primary" }
+    },
+    {
+      "key": "pro",
+      "name": "专业版",
+      "price": "¥9980/年",
+      "tagline": "专业团队和组织首选",
+      "cta": { "label": "开始使用", "href": "https://link-ai.tech/console", "variant": "primary" }
+    },
+    {
+      "key": "enterprise",
+      "name": "企业版",
+      "price": "咨询定价",
+      "tagline": "按需定制，最高优先级保障",
+      "cta": { "label": "购买咨询", "href": "#consult", "variant": "secondary" }
+    }
+  ],
+  "compare": {
+    "title": "版本权益对比",
+    "rows": [
+      { "group": "基础资源", "feature": "", "values": [null, null, null, null] },
+      { "feature": "AI 积分", "values": ["每日签到得", "3 万", "100 万", "按需定制"] },
+      { "feature": "自定义 AI 大模型", "values": [null, "✔", "✔", "✔"] },
+      { "feature": "应用", "values": ["3 个", "10 个", "30 个", "按需定制"] },
+      { "feature": "超级 AI 助理", "values": ["免费试用", "3 个", "9 个", "按需定制"] },
+      { "feature": "云电脑", "values": ["免费试用", "1 台", "3 台", "按需定制"] },
+      { "group": "知识能力", "feature": "", "values": [null, null, null, null] },
+      { "feature": "知识库文件容量", "values": ["100M", "500M", "3G", "按需定制"] },
+      { "feature": "知识库条数", "values": ["2,000 条", "20,000 条", "100,000 条", "按需定制"] },
+      { "feature": "内置数据库行数", "values": ["5 千行", "5 万行", "20 万行", "按需定制"] },
+      { "feature": "远程数据库", "values": [null, "✔", "✔", "✔"] },
+      { "feature": "知识库导入（单次数/大小/表格行数/网页数）", "values": ["10/15MB/2000/10+20", "15/20MB/5000/20+50", "30/30MB/10000/30+100", "—"] },
+      { "group": "扩展能力", "feature": "", "values": [null, null, null, null] },
+      { "feature": "自定义插件", "values": ["3 个", "10 个", "30 个", "按需定制"] },
+      { "feature": "工作流", "values": ["2 个", "6 个", "15 个", "按需定制"] },
+      { "feature": "数据看板 / 渠道接入 / 客户端管理 / 对话限流 / 智能转人工 / 聚合对话管理", "values": [null, "✔", "✔", "✔"] },
+      { "group": "协作与服务", "feature": "", "values": [null, null, null, null] },
+      { "feature": "团队空间", "values": [null, "✔", "✔（10 人）", "✔（按需定制人数）"] },
+      { "feature": "开放 API", "values": ["基础", "高级", "高级", "高级"] },
+      { "feature": "服务", "values": ["社区支持", "客服支持", "专属服务群、优先性能保障", "最高优先级保障、训练调优、私有化部署"] },
+      { "group": "企业专属", "feature": "", "values": [null, null, null, null] },
+      { "feature": "企业专属权益", "values": ["—", "—", "—", "空间成员权限管理、接入渠道客户管理、自定义企业 LOGO、自定义企业应用广场"] }
+    ]
+  },
+  "credits": {
+    "title": "积分充值",
+    "subtitle": "模型 token、插件调用、知识库导入按积分计费；每日签到也可得积分",
+    "freeNote": "每日签到免费领积分",
+    "packs": [
+      { "points": "1000", "price": "¥2.90", "tagline": "体验一下", "badge": "体验" },
+      { "points": "10000", "price": "¥19.00", "tagline": "性价比不错" },
+      { "points": "100000", "price": "¥170.00", "tagline": "API 调用的最佳选择" },
+      { "points": "500000", "price": "¥800.00", "tagline": "企业优选" }
+    ]
+  },
+  "consultation": { "label": "购买咨询", "href": "mailto:support@link-ai.tech" }
+}
