@@ -1,0 +1,22 @@
+[project]
+name = "linkai-task-runner"
+version = "0.1.0"
+description = "断点续传任务进程管理机制：SQLite 进程表 + 检查点 + 启动恢复 + 网络重试（零三方运行时依赖）"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+taskmgr = "task_runner.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["task_runner*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
