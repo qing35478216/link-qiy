@@ -198,7 +198,6 @@ qa-reviewer 在 `test_arch_guards.py` 顶部注释主张「与 `.spectral.yaml` 
 是否存在用户侧的并行会话（另一 CLI / 编辑器窗口 / 另一 Agent 客户端）在操作同一仓库？**若是，需确认其意图与本 team 是否冲突**——这决定后续是继续隔离还是需要合并调度。
 
 ## 四点二、T-011 并发裁决（22:23）
-
 frontend-console 报告三选一，主理人裁定**选 A（接管继续）**，理由：幽灵会话停不掉，受管执行体是唯一可控收口方；选 B/C 会让工单悬着，而 Phase 0 出口要跑真实控制台。
 
 附加三条件：
@@ -211,6 +210,53 @@ frontend-console 报告三选一，主理人裁定**选 A（接管继续）**，
 工单验收第 4 条本意是「**内容**零手写」，不是目录名限制。已核实 `types/index.ts` 全为 `export type ... from '@linkai/sdk-ts/*'`、`api/` 为纯生成物再导出——**正是契约先行想要的样子**。改名为 `api-client/` / `sdk-types/` 反而会暗示另一层架构。
 
 替代动作：在两个 index.ts 文件头加醒目声明「本目录全部 re-export 自 `@linkai/sdk-ts` 生成物，零手写；新增类型必须先改契约包再生成」+ 工单交付说明写明「验收第 4 条已核验」。
+
+## 四点三、GAP-CONTRACT-004：协议签署可绕过（合规级 · 22:30）
+
+qa-reviewer 报此项时定性为「跨通道绕过」，主理人独立核实后**上调一级严重性**。
+
+### 核实结论
+
+`agreementAccepted` 在整个 `console-api.yaml` 中**只出现 2 处，都在 `/auth/phone/login`（loginByPhone）**：
+
+- L96：`required: [phone, smsCode, agreementAccepted]`
+- L100：`agreementAccepted: { type: boolean }`
+
+微信扫码两端点（`createWechatQrcode` @L21、`getWechatQrcodeStatus` @L48）与 `/auth/refresh`（@L116）**均无该约束**。
+
+### 定性
+
+**这不是实现漏了，是契约层从未定义该约束。** 微信通道从契约设计起就没有协议签署要求。
+
+### 严重性
+
+协议签署是**法律效力前提**。微信扫码是默认登录方式，用户点两下即进入，服务条款从未被接受——不是理论风险。带入生产属合规事故。
+
+### 处置
+
+- **单开 T-016，不并入 T-015**——T-015 是风格类积压，合规语义变更混入会被降级处理
+- **契约只能由何约改**（铁律 1）；qa-reviewer 只改守卫与报告，主理人不代管（合规语义不能代管）
+- 守卫口径要求：从「测契约有无此约束」改为「**测各登录通道约束是否一致，不一致即报**」，端点清单做成显式常量 + 「新增登录端点必须登记」的注释。这样何约补完微信端约束后守卫自动转绿
+- 立即上报甲方
+
+## 四点四、架构守卫三份并存（技术债· 待 T-015）
+
+| 位置 | 守卫对象 |
+|---|---|
+| `tests/contracts/test_arch_guards.py` | 契约层规则（qa-reviewer） |
+| `services/platform/tests/architecture/test_layering.py` | platform 代码分层（backend-platform） |
+| `services/model-proxy/tests/unit/test_architecture_guard.py` | model-proxy 代码分层（ai-framework） |
+
+后两者是**同一种规则在两个服务各写一遍**——每加一个服务抄一份，改规则改 N 处。建议评估抽成共享守卫，**不在 Phase 0 做**。
+
+**主理人与 qa-reviewer 的记录分歧（未决）**：其主张「与 `.spectral.yaml` 有意重叠是defense in depth——若 spectral 被跳过则铁律失去防线」；主理人持相反立场，认为**重复不叫纵深叫维护负担**——契约改动需两处同改，漏改概率远高于「有人显式跳过 spectral」（后者显式、后者静默腐化）。已要求列出可迁回 spectral 的规则清单待裁定。
+
+## 四点五、`test_gate.py` 薄壳状态（已解）
+
+qa-reviewer 面临「实装六维矩阵 vs 显式抛错」二选一，选择了**显式抛错**并标注「当前不维护，已由 `tests/gate/gate_chain.py` 取代」，在 `pyproject.toml` 与 README 补迁移说明。
+
+**这个选择正确**：门禁入口看起来能跑实际不检查，比没有更危险。已合并 main。
+
 
 
 
