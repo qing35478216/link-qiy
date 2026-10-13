@@ -1,0 +1,18 @@
+[project]
+name = "link-ai-sdk-py"
+version = "0.1.0"
+description = "LinkAI console API 的 Python SDK（由 packages/contracts/openapi/console-api.yaml 经 openapi-python-client 生成）"
+requires-python = ">=3.11"
+# 依赖与生成器约定保持一致：openapi-python-client 的标准运行时依赖
+dependencies = [
+    "httpx>=0.20",
+    "attrs>=22.2",
+    "python-dateutil>=2.8",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["link_ai_console*"]

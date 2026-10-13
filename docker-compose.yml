@@ -1,0 +1,81 @@
+# LinkAI 本地开发依赖栈（Phase 0 地基）
+#
+# 说明：
+# - 这里只放「本地开发依赖」，不含各服务本体（服务本体在其目录内自带 compose/Dockerfile，后续工单补）
+# - 所有数据卷统一 linkai-* 命名规范；统一网络 linkai-net（bridge）
+# - 端口均为本地默认值，冲突时通过 .env 覆盖（见下方 environment 引用）
+#
+# 向量库选型：Phase 0 用 PostgreSQL + pgvector（单容器少一个组件，Dify 同款演进路径），
+# Milvus/Qdrant 待数据量上来后再评估（见 infra/ADOPTED-TOOLS.md）。
+
+name: linkai
+
+networks:
+  linkai-net:
+    driver: bridge
+
+volumes:
+  linkai-pgdata:
+  linkai-redisdata:
+  linkai-miniodata:
+
+services:
+  postgres:
+    # pgvector 官方镜像自带 PG16 + vector 扩展（Apache-2.0）
+    image: pgvector/pgvector:pg16
+    container_name: linkai-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-linkai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linkai_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-linkai}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - linkai-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-linkai} -d $${POSTGRES_DB:-linkai}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - linkai-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: linkai-redis
+    # 本地开发无密码；联调/共享环境通过 REDIS_PASSWORD 启用
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - linkai-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - linkai-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: linkai-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-linkai}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-linkai_dev_password}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"     # S3 API
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"  # 控制台 http://localhost:9001
+    volumes:
+      - linkai-miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - linkai-net

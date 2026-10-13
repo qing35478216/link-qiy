@@ -39,10 +39,20 @@ prefix=$(git rev-parse --show-prefix 2>/dev/null || echo "")
 tmp_base=$(mktemp -d)
 trap 'rm -rf "$tmp_base"' EXIT
 
+# 坑：契约通过 ../schemas/*.yaml 跨文件引用。若只把单个契约文件导出到临时目录，
+#     oasdiff 解析 ../schemas 会直接失败（no such file or directory）。
+#     所以必须连同 schemas/ 一起导出，保持 openapi/ 与 schemas/ 的相对层级。
+mkdir -p "$tmp_base/openapi" "$tmp_base/schemas"
+for s in schemas/*.yaml schemas/*.yml; do
+  [ -f "$s" ] || continue
+  git show "HEAD:${prefix}${s}" > "$tmp_base/schemas/$(basename "$s")" 2>/dev/null || true
+done
+
 failed=0
 while IFS= read -r f; do
   [ -z "$f" ] && continue
-  base_file="$tmp_base/$(basename "$f")"
+  base_file="$tmp_base/$f"
+  mkdir -p "$(dirname "$base_file")"
   if git show "HEAD:${prefix}${f}" > "$base_file" 2>/dev/null; then
     echo "── 检测 $f"
     if ! oasdiff breaking "$base_file" "$f"; then
