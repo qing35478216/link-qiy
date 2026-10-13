@@ -12,7 +12,7 @@
   },
   "//": "契约冻结门禁：gate = spectral（写得规不规范）+ oasdiff（改得兼不兼容）。oasdiff 需单独预装（Go 二进制），未装时 diff 脚本会给出安装提示而非静默通过。",
   "devDependencies": {
-    "@redocly/cli": "^2.62.2",
+    "@redocly/cli": "2.62.1",
     "@stoplight/spectral-cli": "^6.15.0",
     "@stoplight/spectral-rulesets": "^1.21.3",
     "orval": "^8.41.0",
