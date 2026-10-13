@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.uv/
+go.sum.work
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+htmlcov/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+junit.xml
+test-results/
+playwright-report/
+blob-report/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# IDE / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+
+# Logs & temp
+*.log
+tmp/
+temp/
+*.tmp
+
+# Local worktrees (git worktree add ../wt-T-xxx)
+wt-T-*
+
+# Local-only AI team scratch
+.ai-team/local/
+
+# WorkBuddy internal data
+.workbuddy/

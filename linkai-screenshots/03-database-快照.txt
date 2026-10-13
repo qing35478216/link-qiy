@@ -1,0 +1,102 @@
+- image
+- image [ref=e1] clickable [cursor:pointer]
+- generic
+  - button [expanded=false, ref=e5]
+    - generic
+      - image
+      - superscript
+- generic [ref=e2] clickable [cursor:pointer]
+  - image
+- generic [ref=e3] clickable [cursor:pointer]
+  - image
+- generic
+  - button [expanded=false, ref=e8]
+    - generic
+      - image [ref=e10] clickable [cursor:pointer]
+      - superscript
+- generic [ref=e4] clickable [cursor:pointer]
+  - StaticText "基础版"
+- button "笙" [expanded=false, ref=e6]
+  - image
+  - StaticText "笙"
+- generic
+  - menubar
+    - menuitem "创造" [expanded=true, ref=e11]
+      - generic [ref=e15] clickable [cursor:pointer]
+        - StaticText "创造"
+        - image
+      - menu
+        - menuitem "编组 8 智能体" [ref=e19]
+          - image "编组 8"
+          - StaticText "智能体"
+        - menuitem "编组 30 知识库" [ref=e20]
+          - image "编组 30"
+          - StaticText "知识库"
+        - menuitem "编组 29 数据库" [ref=e21]
+          - image "编组 29"
+          - StaticText "数据库"
+        - menuitem "编组 28 插件" [ref=e22]
+          - image "编组 28"
+          - StaticText "插件"
+        - menuitem "编组 27 工作流" [ref=e23]
+          - image "编组 27"
+          - StaticText "工作流"
+    - menuitem "接入" [expanded=true, ref=e12]
+      - generic [ref=e16] clickable [cursor:pointer]
+        - StaticText "接入"
+        - image
+      - menu
+        - menuitem "编组 26 渠道接入" [ref=e24]
+          - image "编组 26"
+          - StaticText "渠道接入"
+        - menuitem "编组 25 客户端" [ref=e25]
+          - image "编组 25"
+          - StaticText "客户端"
+        - menuitem "编组 24 对话管理" [ref=e26]
+          - image "编组 24"
+          - StaticText "对话管理"
+    - menuitem "管理" [expanded=true, ref=e13]
+      - generic [ref=e17] clickable [cursor:pointer]
+        - StaticText "管理"
+        - image
+      - menu
+        - menuitem "编组 22 我的账户" [ref=e27]
+          - image "编组 22"
+          - StaticText "我的账户"
+        - menuitem "模型服务" [ref=e28]
+          - image
+          - StaticText "模型服务"
+        - menuitem "编组 21 数据看板" [ref=e29]
+          - image "编组 21"
+          - StaticText "数据看板"
+        - menuitem "编组 20 团队空间" [ref=e30]
+          - image "编组 20"
+          - StaticText "团队空间"
+    - menuitem "发现" [expanded=true, ref=e14]
+      - generic [ref=e18] clickable [cursor:pointer]
+        - StaticText "发现"
+        - image
+      - menu
+        - menuitem "编组 13 模板中心" [ref=e31]
+          - image "编组 13"
+          - StaticText "模板中心"
+        - menuitem "编组 12 应用广场" [ref=e32]
+          - image "编组 12"
+          - StaticText "应用广场"
+        - menuitem "内容创作" [ref=e33]
+          - image
+          - StaticText "内容创作"
+  - generic [ref=e7] clickable [cursor:pointer]
+- image
+- StaticText "/ 创造"
+- StaticText "/ 数据库"
+- generic
+  - image
+  - StaticText "创建数据库"
+- image
+- StaticText "还没有数据库"
+- StaticText "接入内置或远程数据库，让智能体通过对话直接查询、写入你的业务数据。"
+- button "去创建数据库" [ref=e9]
+  - image
+  - StaticText "去创建数据库"
+- image
