@@ -45,6 +45,30 @@
 
 处置：T-003 改为 **T-002 收尾后串行开工**，已用 blockedBy 固化到任务板。原指令把两单同列 Wave 1 属安排失误，已修正。
 
+**解阻结果（21:34）**：T-002 已合并 main（`b376b3b`，58+ 测试、域覆盖 99.48%、mypy strict/ruff 零问题、领地零越界，工单状态 DONE）。T-003 已正式派单（`a97a2fb`，工单 ASSIGNED），backend-platform 在 `wt-T-002` 续用 worktree、开分支 `feat/T-003-apps`——符合「已存在 worktree 直接续用，不准新建重复 worktree」。
+
+## 三点五、Wave 1 并行实况（21:39 提交落地）
+
+| 分支 | 最新提交 | 内容 |
+|---|---|---|
+| `feat/T-003-apps` | `0791d74` | T-003 应用域 domain 骨架 + T-002 架构分层守卫（待拆分成两个 commit） |
+| `feat/T-005-model` | `bc84625` | model-proxy domain 层：适配器协议 / 注册中心 / 降级链 / 计量埋点 / SSRF 闸门 |
+| `feat/T-008-gateway` | `44658a8` | 网关骨架：鉴权 / 限流 / 路由 / CORS 四角分离 + ssrf-proxy |
+| `feat/T-009-marketing` | `ee692fb` | 补齐 hero-section 组件 + 修正 home.json Hero 标题重复渲染 |
+| `feat/T-010-qa` | `05e2475` | 契约测试框架消费者侧 + 架构守卫（31 passed）+ 修复 pnpm allowBuilds 占位符 |
+| `feat/T-011-console` | `adcd552` | 17 组件抢救落盘（后续外壳施工中） |
+
+### 事故记录：wt-T-002 commit 混装（已定性为认知过期，非污染）
+
+backend-platform 报告「误将 T-003 文件提交到 T-003 分支」。主理人独立核查 git 后定性：
+
+- **不是领地越界，不是数据丢失，不是分支污染**。T-002 早已合并 main（工单 DONE），T-003 已正式派给它；那 4 个 domain 文件是它自己为 T-003 写的未提交 WIP。worktree 切到 `feat/T-003-apps` 是正确操作。
+- **唯一真实问题**：commit `0791d74` 把 T-002 收尾资产（`tests/architecture/` 架构分层守卫）与 T-003 新代码混装在一个提交里，违反「一个工单只属于一个角色」的提交纪律。
+- **处置**：`git reset --soft HEAD~1` 回到 `a97a2fb`，按工单归属拆成两个干净 commit（A=T-002 架构守卫，B=T-003 domain 四文件），不改文件内容、不重写既有历史。
+
+**架构守卫测试质量认可**：167 行用 AST 静态解析而非 grep，能挡 `import x as y` 与函数内延迟导入，且做过变异测试（注入 `import fastapi` 后如期失败）验证守卫真实有效——这是验收标准 3 的正确自动化。`api/deps.py` import sqlalchemy 判定为组装根职责所在（需划事务边界），规则收窄为「ORM 模型只准在 infra」而非「api 层不准碰 sqlalchemy」，未为让测试通过而改生产代码，此判断正确。
+
+
 ## 四、门禁分级（Phase 0 轻量门禁 · 进度优先）
 
 | 类型 | 门禁 | 本轮适用工单 |
