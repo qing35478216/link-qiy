@@ -47,6 +47,27 @@ GAP_LOGOUT_MISSING_TENANT_HEADER = "GAP-CONTRACT-003"
 #: 与 channel-engineer 在 T-008 发现的同一问题（#26），此处统一登记避免重复上报。
 GAP_WECHAT_LOGIN_MISSING_AGREEMENT = "GAP-CONTRACT-004"
 
+#: 「缺失租户标识」的错误状态码在各服务间不一致。
+#: 实测（Wave 1 各服务自测结果）：
+#:   - T-005 model-proxy 缺 X-Tenant-Id → 400 Bad Request
+#:   - T-008 gateway    缺租户        → 500 Internal Server Error
+#: 两者语义相同（都是「拒绝非法请求」），但状态码不同：
+#:   - 400 是正确的（请求方的问题）
+#:   - 500 会被客户端与监控归类为「服务端故障」，污染错误率指标与告警
+#: 根因同类于GAP-CONTRACT-004：契约没定义，各服务各自决定。
+#: 本条不在 Phase 1 前强改——**状态码归属是契约决定，只能何约定**。
+#: QA 侧的处置：断言写成「必须落在 4xx 族」而非钉死某个码，
+# 这样两种实现都通过；何约定码后再把断言收紧为精确匹配。
+GAP_TENANT_MISSING_STATUS_INCONSISTENT = "GAP-CONTRACT-005"
+
+#: 网关注入的身份头清单未在契约中定义。
+#: 实测：packages/contracts/schemas/common.yaml 只有 X-Tenant-Id（第 25 行），
+#: X-User-Id / X-Trace-Id / X-Gateway-Surface 均无定义，全靠服务间口头约定。
+#: 后果：客户端可伪造这些头直连下游（T-008 已实测出 X-User-Id 穿透并修复），
+#: 但「哪些 X-* 归网关管」没有单一事实源，新��下游服务时必然漏加。
+#: 由 channel-engineer 在 T-008 独立发现并上报，与 GAP-CONTRACT-004 根因同类。
+GAP_IDENTITY_HEADERS_UNDEFINED = "GAP-CONTRACT-006"
+
 #: 本基线登记的缺口。**只允许减少**：新增条目必须在此处登记 issue 出处。
 KNOWN_GAPS: dict[str, dict[str, str]] = {
     GAP_WRITE_OPS_MISSING_4XX: {
@@ -78,6 +99,26 @@ KNOWN_GAPS: dict[str, dict[str, str]] = {
                   "无任何等价约束，协议同意状态可被跨通道绕过。",
         "raised_in": "T-010（QA 基础设施，2026-10-13）；"
                      "channel-engineer 在 T-008 独立发现同一问题（task #26）",
+        "owner": "Contract Engineer（何约）",
+        "severity": "blocker-for-phase1",
+    },
+    GAP_TENANT_MISSING_STATUS_INCONSISTENT: {
+        "title": "缺失租户标识的错误状态码跨服务不一致",
+        "detail": "T-005 model-proxy 返 400，T-008 gateway 返 500。语义相同、"
+                  "状态码不同；500 会污染错误率指标与告警。"
+                  "QA 侧断言暂用「4xx 族」，待何约定码后收紧为精确匹配。",
+        "raised_in": "T-010（随访，2026-10-13）；由 channel-engineer 提出，"
+                     "T-008/T-005 自测中实测发现",
+        "owner": "Contract Engineer（何约）",
+        "severity": "warn",
+    },
+    GAP_IDENTITY_HEADERS_UNDEFINED: {
+        "title": "网关注入的身份头清单未在契约中定义",
+        "detail": "common.yaml 只有 X-Tenant-Id；X-User-Id / X-Trace-Id / "
+                  "X-Gateway-Surface 全无定义。客户端可伪造这些头直连下游"
+                  "（T-008 已实测出 X-User-Id 穿透并修复），"
+                  "且「新下游服务该纳管哪些头」没有单一事实源，必然漏加。",
+        "raised_in": "T-008（channel-engineer 上报）；T-010 登记为契约层缺口",
         "owner": "Contract Engineer（何约）",
         "severity": "blocker-for-phase1",
     },
