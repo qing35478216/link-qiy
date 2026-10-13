@@ -1,0 +1,54 @@
+name: gate
+
+on:
+  push:
+    branches: ["main", "feat/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # 用 corepack 启用 pnpm（版本由仓库约定，不污染全局 npm）
+      - name: Enable pnpm via corepack
+        run: corepack enable && corepack prepare pnpm@latest --activate
+
+      # TODO [T-001 收口后]：根 pnpm-lock.yaml 提交后改为 pnpm install --frozen-lockfile
+      - name: Install workspace dependencies
+        run: pnpm install
+
+      # ── 真实步骤（Phase 0 已可用）─────────────────────────────
+      - name: Contracts lint（spectral 契约机检，error 必须为零）
+        run: npm --prefix packages/contracts run lint
+
+      # ── 占位步骤：待服务代码落地后启用（对应工单启用时删除本注释并替换真实命令）──
+
+      # TODO [T-003~T-008] Python 服务 lint + 类型（uv + ruff + mypy --strict）：
+      #   - uses: astral-sh/setup-uv@v5
+      #   - run: uv run ruff check services/ && uv run mypy --strict services/*/src
+      - name: Python lint / typecheck（占位）
+        run: echo 'TODO [T-003~T-008] uv + ruff + mypy 待服务代码落地后启用'
+
+      # TODO [T-0xx] 前端 lint（web-console / web-marketing / web-studio 就绪后）：
+      #   - run: pnpm -r lint
+      - name: Node lint（占位）
+        run: echo 'TODO pnpm -r lint 待前端应用落地后启用'
+
+      # TODO 全量启用（现在仓库内还没有可扫的服务依赖）：Trivy 依赖/镜像漏洞扫描
+      #   - uses: aquasecurity/trivy-action@0.28.0
+      #     with: { scan-type: fs, severity: CRITICAL,HIGH }
+      - name: Trivy dependency scan（占位）
+        run: echo 'TODO trivy fs 待服务依赖（requirements/pyproject）落地后启用'
+
+      # 后续阶段补充：oasdiff 破坏性变更检测（contracts README 已预留）、
+      # Pact 契约测试、pytest 覆盖率门禁（领域层 ≥70%）、Playwright E2E

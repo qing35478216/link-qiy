@@ -1,0 +1,19 @@
+{
+  "name": "linkai-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LinkAI 复刻工程 Monorepo（契约先行 · 四层架构 · pnpm workspace）",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "gate": "make gate",
+    "dev": "make dev",
+    "test": "make test"
+  }
+}
