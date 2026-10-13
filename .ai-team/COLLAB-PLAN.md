@@ -68,6 +68,93 @@ backend-platform 报告「误将 T-003 文件提交到 T-003 分支」。主理�
 
 **架构守卫测试质量认可**：167 行用 AST 静态解析而非 grep，能挡 `import x as y` 与函数内延迟导入，且做过变异测试（注入 `import fastapi` 后如期失败）验证守卫真实有效——这是验收标准 3 的正确自动化。`api/deps.py` import sqlalchemy 判定为组装根职责所在（需划事务边界），规则收窄为「ORM 模型只准在 infra」而非「api 层不准碰 sqlalchemy」，未为让测试通过而改生产代码，此判断正确。
 
+## 三点六、并发写入者身份事故（重要，影响后续所有派单）
+
+backend-platform 第二次报告："worktree 里有另一个 agent 在并发写 T-003 代码"。主理人独立核查后定性：
+
+### 证据链
+
+1. T-002 的提交 `6369ebf` 作者是 **`backend-platform-2`**，而团队登记名是 `backend-platform`——**存在两个实例**
+2. `b376b3b`（合并 T-002 入 main）、`a97a2fb`（T-003 派单）、`24cdf68`（COLLAB-PLAN 增补）三个提交**都不是本team-lead 做的**，作者均为 `qiy`，时间 21:29-21:35
+3. `infra/models.py` 在 `a97a2fb` 中已存在（T-002 账户域 ORM 模型），此后被追加 AppModel/AppVersionModel——并发写入者是**在扩展已有文件**，属正常续作
+
+### 定性
+
+**该仓库上存在本团队之外的并发操作会话**。既非 backend-platform 实例本身，也非本 team-lead。处置原则：
+
+- **不去动它**，不清理它的文件，不改它的提交
+- backend-platform 只提交自己的 `tests/architecture/`（T-002 资产），T-003 的 6 个文件一个不碰
+- **不向 `wt-T-002` 派新 agent**，避免三方撞车
+- Wave 2 的 T-004/T-006 依赖 T-003，在 T-003 合并前不派
+
+### 由此确立的纪律
+
+**同一 worktree 并发写入时，任何 agent 停工前禁止 `git add -A`**——必须精确 `git add <自己的路径>`。backend-platform 两次报告都正确地暂停了，这个判断力要保持。
+
+## 三点七、Wave 1 合并进展（22:0x）
+
+| 工单 | 状态 | 主理人独立复验 |
+|---|---|---|
+| T-005 模型框架 v1 | ✅ **已合并 main** | pytest 145 passed/ 覆盖 96.31% / mypy --strict 干净 35 文件 / ruff 全过 / 契约零改动 |
+| T-010 QA 基础设施 | ✅ **已合并 main** | 领地仅 `tests/{contracts,gate,golden-set}/` + 共享文件 / 契约零改动 |
+| T-008 Go 网关 | ⏸ **暂不合并** | `-race -count=1` 三包全绿、限流 16 用例；但**安全类须独立门禁**，已派 `t008-gatekeeper` 复审 |
+| T-002 账户体系 | ✅ 已合并 main（`b376b3b`） | 58+ 测试/ 域覆盖 99.48% |
+| T-003 应用域 | 🔄 另一会话推进中 | 不派人 |
+| T-009 营销站 | 🔄 agent 推进中 | — |
+| T-011 控制台 | 🔄 agent 推进中 | — |
+
+### T-005 关键工程决策：不采用 LiteLLM
+
+否决理由**不是许可证而是架构**：`litellm/main.py` 含 100+ 厂商 if/elif 分派，新接厂商必须改上游内核，与铁律 4「内核零改动」是**结构性死结**；且自带价格表与 `ModelCard` 构成契约双事实源。（其许可证 GitHub 报 `NOASSERTION`，实为根 MIT + `enterprise/` 商业许可。）
+
+改走OpenAI 兼容 HTTP + 自建适配器注册表，唯一新增运行时依赖 httpx（BSD-3-Clause），无 GPL/AGPL/非商用许可。**已要求补 ADR**，防止将来重复评估。
+
+### 用例抓出的三个真实缺陷（T-005）
+
+均为**用例抓出而非改测试凑绿**：
+1. **计费漏计**：`CreditCalculator` 噪声精度 1e-6 把 GLM Flash 类 0.0001/1k 极低单价截断为 0 = **该模型完全免费**（资损级）
+2. **流式少算账**：SSE `done` 事件在 credits 算完前 yield，客户端 `usage.credits` 恒为 0
+3. **错误语义混淆**：`retriable` 被兼作 HTTP 状态码推导，「候选耗尽」被误报 400 → 拆为 `code`/`retriable`/`client_status` 三正交维度
+
+第 1 条已在 T-005 README 的踩坑段落留指针。**这类精度截断问题在 T-007 积分钱包大概率重演**——已提醒。
+
+## 三点八、待甲方决策清单（累积）
+
+| # | 事项| 状态 | 风险 |
+|---|---|---|---|
+| 1 | T-007 是否前移 Wave 1 | 待决 | 依赖 T-001 已满足，前移可压缩关键路径 |
+| 2 | **T-005 内置模型价格核对** | 待决 | **价格错=直接算错账**。核对前计费结果仅可用于联调，不可真实扣费 |
+| 3 | T-005 契约缺口 4 项排期 | 已排入 T-015 | 其中 `MeteringEvent` 无 schema **阻塞 T-007** |
+| 4 | T-005 厂商清单是否扩至 10 家 | 已决：**维持 5 家** | 注册中心「加一家 10 行」已被 5 家实践验证 |
+| 5 | T-010 领地扩写 `services/model-proxy/**` | 已批准 | 工单领地字段应从服务根写起，勿只写 `src/**` |
+| 6 | T-014 何约复核时点 | 待约 | 主理人代管交付的契约改动 |
+| 7 | Phase 0 出口验收的厂商 API Key | 待确认 | 无 Key 无法跑通「配模型 → 对话」 |
+| 8 | T-016 候选：`auth/refresh` 无 principal 应403 非 401 | 待何约 | 安全语义错误 |
+| 9 | T-016 候选：alembic 往返校验缺失 | 待何约 | 单向 migration 不可逆 |
+
+## 三点九、主理人与 qa-reviewer 的记录分歧（未决）
+
+qa-reviewer 在 `test_arch_guards.py` 顶部注释主张「与 `.spectral.yaml` 有意重叠是 defense in depth——若 spectral 被单独跳过，架构铁律就失去防线」。
+
+**主理人持相反立场**：重复不叫纵深，叫维护负担。契约改动需`test_arch_guards.py` 与 `.spectral.yaml` 两处同改，**漏改一边的概率远大于「有人显式跳过 spectral」**——后者是显式行为，前者是静默腐化。本项目已吃3 次静默死亡，不会再引入新的静默失败源。
+
+主张的边界：**spectral 管 lint 可表达的规则，QA 管 spectral 表达不了的规则**（如跨规范语义一致性）。已要求列出可迁回 spectral 的规则清单，由主理人裁定。
+
+## 三点十、待处理技术债（已记入 T-015）
+
+**三份架构守卫的重复维护风险**：
+
+| 位置 | 守卫对象 |
+|---|---|
+| `tests/contracts/test_arch_guards.py` | 契约层规则（qa-reviewer） |
+| `services/platform/tests/architecture/test_layering.py` | platform 代码分层（backend-platform） |
+| `services/model-proxy/tests/unit/test_architecture_guard.py` | model-proxy 代码分层（ai-framework） |
+
+后两者是**同一种规则在两个服务各写一遍**——每加一个服务抄一份，改规则改 N 处。建议评估抽成共享守卫，但**不在 Phase 0 做**。
+
+**`test_gate.py` 薄壳未实装矩阵的风险**：它已进 main，目前是「看起来能跑、实际什么都不检查」的门禁入口——比没有更危险。已要求 qa-reviewer 实装矩阵，或至少显式抛错说明未实装，禁止静默 print 通过。
+
+
 
 ## 四、门禁分级（Phase 0 轻量门禁 · 进度优先）
 
