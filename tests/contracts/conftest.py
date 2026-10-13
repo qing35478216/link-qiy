@@ -107,12 +107,16 @@ def base_url() -> str:
     return url
 
 
-@pytest.fixture(scope="session")
-def auth_headers() -> dict[str, str]:
+def build_auth_headers() -> dict[str, str]:
     """属性测试用的公共头。
 
     契约要求除`x-public` 端点外都带 bearerAuth + X-Tenant-Id。缺任一头，
     测出来的就全是 401/422，属性测试失去意义。
+
+    刻意做成**普通函数**而非 fixture：schemathesis 的 `@schema.parametrize()`
+    会把测试函数签名里的每个名字都当作 case 注入源，签名里出现 fixture 名会
+    与 schemathesis 的注入机制冲突；而 pytest 9 又禁止直接调用 fixture
+    （"Fixture called directly"）。普通函数两头都躲得开。
     """
     headers = {"Content-Type": "application/json"}
     token = os.environ.get(TOKEN_ENV)
@@ -122,6 +126,11 @@ def auth_headers() -> dict[str, str]:
     if tenant:
         headers["X-Tenant-Id"] = tenant
     return headers
+
+
+@pytest.fixture(scope="session")
+def auth_headers() -> dict[str, str]:
+    return build_auth_headers()
 
 
 @pytest.fixture(scope="session")
