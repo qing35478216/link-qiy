@@ -30,7 +30,7 @@ npm run lint:strict  # warn 级也拦截，冻结契约前用这个
 |------|------|----------|
 | `linkai-operation-id-exists` / `-casing` | error / warn | 生成物命名可控（契约先行） |
 | `linkai-tenant-context-declared` | warn | 架构铁律 #6 多租户穿透 |
-| `linkai-error-response-4xx` / `-5xx` | error | 客户端可穷举失败分支 |
+| `linkai-error-response-4xx` / `-5xx` | warn（Phase 0 轻量门禁降级；冻结 v0.2 前用 lint:strict 清零） | 客户端可穷举失败分支 |
 | `linkai-error-envelope-shape` | error | 统一错误信封 `{code, message, requestId}` |
 | `linkai-security-defined` | error | 架构铁律 #5 安全基线 |
 | `linkai-path-kebab-case` / `-summary-required` / `-tags-required` | warn | 可维护性 |

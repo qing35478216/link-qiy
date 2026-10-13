@@ -2,10 +2,10 @@ openapi: 3.1.0
 info:
   title: LinkAI Console API（管理面）
   description: |
-    Builder 控制台管理面契约 v0.1.0。
+    Builder 控制台管理面契约 v0.1.1。
     多租户：除登录/注册类端点外，所有端点要求 `X-Tenant-Id` 请求头（平台在网关解析 JWT 后注入，控制台前端透传）。
     分页：列表统一 cursor 分页（limit + cursor，响应含 nextCursor，空表示无更多）。
-  version: 0.1.0
+  version: 0.1.1
 servers:
   - url: /api/console/v1
 tags:
@@ -20,6 +20,7 @@ paths:
       summary: 发起微信扫码登录
       operationId: createWechatQrcode
       security: []
+      x-public: true
       requestBody:
         required: true
         content:
@@ -46,6 +47,7 @@ paths:
       summary: 轮询扫码状态
       operationId: getWechatQrcodeStatus
       security: []
+      x-public: true
       parameters:
         - { name: ticket, in: path, required: true, schema: { type: string } }
       responses:
@@ -65,6 +67,7 @@ paths:
       summary: 发送手机短信验证码
       operationId: sendSmsCode
       security: []
+      x-public: true
       requestBody:
         required: true
         content:
@@ -83,6 +86,7 @@ paths:
       summary: 手机号+验证码登录（强制协议勾选）
       operationId: loginByPhone
       security: []
+      x-public: true
       requestBody:
         required: true
         content:
@@ -111,6 +115,7 @@ paths:
       summary: 刷新访问令牌
       operationId: refreshToken
       security: []
+      x-public: true
       requestBody:
         required: true
         content:
@@ -260,6 +265,7 @@ paths:
     put:
       tags: [Apps]
       summary: 保存配置七件套（保存即新版本）
+      description: 全量替换语义——未提供的段落视为清空；部分更新待 v0.2 PATCH 端点
       operationId: putAppConfig
       security: [{ bearerAuth: [] }]
       parameters:
@@ -282,24 +288,24 @@ paths:
   /apps/{appId}/publish:
     post:
       tags: [Apps]
-      summary: 公开开关-发布到广场（发 AppPublished 事件）
+      summary: 公开开关-发布到广场（平台内部领域事件，v0.2 契约化）
       operationId: publishApp
       security: [{ bearerAuth: [] }]
       parameters:
         - { $ref: '../schemas/common.yaml#/TenantHeader' }
         - { name: appId, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: 已发布' }
+        '200': { description: 已发布 }
     delete:
       tags: [Apps]
-      summary: 公开开关-下架（发 AppUnpublished 事件）
+      summary: 公开开关-下架（平台内部领域事件，v0.2 契约化）
       operationId: unpublishApp
       security: [{ bearerAuth: [] }]
       parameters:
         - { $ref: '../schemas/common.yaml#/TenantHeader' }
         - { name: appId, in: path, required: true, schema: { type: string } }
       responses:
-        '204': { description: 已下架' }
+        '204': { description: 已下架 }
   /apps/{appId}/versions:
     get:
       tags: [Apps]
@@ -376,12 +382,12 @@ components:
     UserProfile:
       type: object
       properties:
-        id: { type: string }
+        id: { type: string, readOnly: true, description: 只读——客户端不可修改 }
         nickname: { type: string }
         avatarUrl: { type: string, format: uri }
         phone: { type: string }
-        plan: { type: string, enum: [basic, standard, pro, enterprise] }
-        agreementAcceptedAt: { type: string, format: date-time }
+        plan: { type: string, enum: [basic, standard, pro, enterprise], readOnly: true, description: 只读——套餐变更走订阅流程，防越权 }
+        agreementAcceptedAt: { type: string, format: date-time, readOnly: true, description: 只读——协议签署时间服务端记录 }
     App:
       type: object
       required: [name, type]

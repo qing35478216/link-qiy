@@ -53,7 +53,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     x_tenant_id: str,
 ) -> Response[Any]:
-    """公开开关-下架（发 AppUnpublished 事件）
+    """公开开关-下架（平台内部领域事件，v0.2 契约化）
 
     Args:
         app_id (str):
@@ -85,7 +85,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     x_tenant_id: str,
 ) -> Response[Any]:
-    """公开开关-下架（发 AppUnpublished 事件）
+    """公开开关-下架（平台内部领域事件，v0.2 契约化）
 
     Args:
         app_id (str):

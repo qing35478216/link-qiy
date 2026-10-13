@@ -1,5 +1,27 @@
 # 契约变更日志
 
+## v0.1.1（2026-10-13，严明复审后修复，主理人代管——何约配额耗尽）
+
+来源：qa-reviewer 合并后复审（门禁 3 PASS + 3 PARTIAL，3 BLOCKING + 11 NON-BLOCKING，工单 T-014）。
+
+**BLOCKING 修复**：
+- `runtime-events.yaml` 新增 `done` 终局事件（data: usage{promptTokens,completionTokens,totalTokens,credits} + finishReason + conversationId）——流式消费方以 done 为正常结束标志，连接关闭仅兜底（B1）
+- `service-api.yaml` `stream` 默认值 `true` → `false`，对齐 OpenAI 惯例：不传该字段返回完整 JSON（B2，预发布行为变更，无外部消费者）
+- `console-api.yaml` publish/unpublish summary 不再引用未定义的 AppPublished/AppUnpublished，改称"平台内部领域事件（v0.2 契约化）"（B3）
+
+**安全与一致性修复**：
+- `UserProfile` 的 id/plan/agreementAcceptedAt 标 `readOnly`——GET 仍返回，PATCH 生成类型排除，防客户端越权改套餐/协议时间（N7）
+- 5 个公开登录端点补 `x-public: true`，与规则集豁免约定自洽（N3）
+- `MessageChunkEvent.data.seq` 与 `EventEnvelope.conversationId` 升为 required（N9）
+- `putAppConfig` description 写明全量替换语义（N6）
+- 修 publish 响应描述残留撇号（N11）
+- `ADOPTED-TOOLS.md` 勘误：orval 实际产物为 axios 客户端 + 类型 + MSW handlers，不含 TanStack Query hooks（N1）
+- `README.md` 规则表 error-response 级别改回 warn，与 .spectral.yaml 一致（N2）
+
+**SDK 同步**：`npm run generate` 重跑，sdk-ts/sdk-py 生成物随本版本更新（done 事件类型、stream 默认 false、UserProfile 只读字段、x-public 不影响生成物）。
+
+**遗留**：N4/N5/N8/N10 进 T-015 积压（v0.2 冻结前处理）。
+
 ## v0.1.0（2026-10-13，Phase 0 冻结）
 
 初始冻结，契约先行落地：

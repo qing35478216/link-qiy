@@ -17,12 +17,12 @@ T = TypeVar("T", bound="UserProfile")
 class UserProfile:
     """
     Attributes:
-        id (str | Unset):
+        id (str | Unset): 只读——客户端不可修改
         nickname (str | Unset):
         avatar_url (str | Unset):
         phone (str | Unset):
-        plan (UserProfilePlan | Unset):
-        agreement_accepted_at (datetime.datetime | Unset):
+        plan (UserProfilePlan | Unset): 只读——套餐变更走订阅流程，防越权
+        agreement_accepted_at (datetime.datetime | Unset): 只读——协议签署时间服务端记录
     """
 
     id: str | Unset = UNSET
