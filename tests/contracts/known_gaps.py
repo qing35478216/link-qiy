@@ -23,11 +23,21 @@ from __future__ import annotations
 #: 处置：T-014 已将 spectral 规则降为 warn；契约侧补齐由 Contract Engineer 排期。
 GAP_WRITE_OPS_MISSING_4XX = "GAP-CONTRACT-001"
 
-#: 契约从未引用 common.yaml#Error 统一错误信封。
-#: 现状：console-api / service-api 的 components.schemas 中无 Error，
-#: 也无任何 `../schemas/common.yaml#/Error` 的 $ref 引用，
-#: 即前端拿不到统一错误形状，链路上拿不到 requestId。
-#: 上报：工单 T-010「契约缺口上报」节，已提请 Contract Engineer（何约）处理。
+#: 统一错误信封的引用情况。
+#:
+#: ~~原描述（v0.1.0）~~：契约从未引用 common.yaml#Error，两份规范都拿不到
+#: 统一错误形状，链路拿不到 requestId。
+#:
+#: **实际已修复（2026-10-13 复核）**：何约在 v0.1.1 已补上引用——
+#:   console-api.yaml:111（POST /auth/phone/login 的 403 AGREEMENT_NOT_ACCEPTED）
+#:   service-api.yaml:43（POST /chat/completions 的 429 配额不足）
+#: 守卫 `test_error_envelope_referenced_by_operations` 现为 PASS。
+#:
+#: **剩余的真实缺口是覆盖率，不是「有没有」**：13 个写操作里只有 2 个的
+#: 4xx/5xx 响应引用了信封（见 GAP_WRITE_OPS_MISSING_4XX）。
+#: 即「信封本身可用，但大部分错误响应还没用它」。
+#: 该项并入 001 跟踪，不单列——单列会让基线里躺着一条已解决的假缺口，
+#: 误导所有人以为还有「Error 没人引用」这个问题。
 GAP_ERROR_ENVELOPE_UNREFERENCED = "GAP-CONTRACT-002"
 
 #: console-api 的 POST /auth/logout 未声明任何 parameters（含 X-Tenant-Id）。
@@ -94,11 +104,18 @@ KNOWN_GAPS: dict[str, dict[str, str]] = {
         "severity": "warn",
     },
     GAP_ERROR_ENVELOPE_UNREFERENCED: {
-        "title": "统一错误信封未被任何操作引用",
-        "detail": "common.yaml#Error 定义存在，但两份 OpenAPI 规范均无 $ref 引用。",
-        "raised_in": "T-010（QA 基础设施，2026-10-13）",
+        "title": "统一错误信封引用覆盖率极低（信封本身可用）",
+        "detail": "**已部分修复**：何约在 v0.1.1 补了引用——console-api.yaml:111"
+                  "（loginByPhone 的 403）与 service-api.yaml:43"
+                  "（chat/completions 的 429）均已 $ref 到 common.yaml#Error，"
+                  "守卫 test_error_envelope_referenced_by_operations 现为 PASS。"
+                  "剩余问题：13 个写操作里绝大多数 4xx/5xx 仍未声明"
+                  "（并入 GAP-CONTRACT-001 一起修）。"
+                  "本条保留在基线里只为跟踪覆盖率，不再是「无人引用」。",
+        "raised_in": "T-010（QA 基础设施，2026-10-13）；"
+                     "2026-10-13 复核确认部分修复",
         "owner": "Contract Engineer（何约）",
-        "severity": "blocker-for-phase1",
+        "severity": "downgraded-from-blocker",
     },
     GAP_LOGOUT_MISSING_TENANT_HEADER: {
         "title": "POST /auth/logout 缺少 X-Tenant-Id",

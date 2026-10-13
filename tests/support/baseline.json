@@ -1,5 +1,5 @@
 {
-  "commit": "c83f15f",
+  "commit": "1db08a0",
   "guard_count": 13,
   "guards": {
     "security[console]": "PASS",
@@ -27,8 +27,8 @@
   ],
   "file_fingerprints": {
     "tests/contracts/known_gaps.py": {
-      "bytes": 8615,
-      "sha256": "51033350d121b73a"
+      "bytes": 9744,
+      "sha256": "9232b9577391145b"
     },
     "tests/contracts/test_arch_guards.py": {
       "bytes": 26512,
