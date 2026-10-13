@@ -66,14 +66,17 @@ body {
   .section-title {
     @apply text-2xl sm:text-3xl font-bold tracking-tight;
   }
+  /* 按钮基座。注意：不要用 `@apply btn` 让变体继承基座——
+     Tailwind 无法 @apply 自定义类，整条规则会被静默丢弃（产物里连 .btn 都不存在，
+     主按钮因此渲染成无背景的纯文字）。变体各自列出工具类即可。 */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors;
   }
   .btn-primary {
-    @apply btn bg-brand-500 text-white hover:bg-brand-600;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors bg-brand-500 text-white hover:bg-brand-600;
   }
   .btn-secondary {
-    @apply btn border;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors border;
     border-color: var(--border);
     color: var(--text);
     background-color: var(--bg-card);
@@ -83,7 +86,7 @@ body {
     color: var(--brand-text);
   }
   .btn-text {
-    @apply btn px-3;
+    @apply inline-flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-medium transition-colors px-3;
     color: var(--brand-text);
   }
 }

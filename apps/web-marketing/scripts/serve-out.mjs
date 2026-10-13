@@ -73,12 +73,17 @@ function resolve(urlPath) {
 
 createServer((req, res) => {
   const file = resolve(req.url ?? '/');
-  const notFound = join(root, '404.html');
 
   if (!file) {
-    const body = cache.get(notFound) ?? { raw: readFileSync(notFound), gz: null };
-    res.writeHead(404, { 'content-type': MIME['.html'] });
-    res.end(req.headers['accept-encoding']?.includes('gzip') && body.gz ? body.gz : body.raw);
+    // 404 同样走压缩缓存——此处必须与普通响应一致地声明 content-encoding，
+    // 否则浏览器会把 gzip 字节当 HTML 解析，页面渲染成一堆乱码。
+    const entry = cache.get(join(root, '404.html'));
+    const wantsGzip = entry && /\bgzip\b/.test(req.headers['accept-encoding'] ?? '');
+    const headers = { 'content-type': MIME['.html'], 'cache-control': 'no-store' };
+    if (wantsGzip) headers['content-encoding'] = 'gzip';
+
+    res.writeHead(404, headers);
+    res.end(entry ? (wantsGzip ? entry.gz : entry.raw) : '404 Not Found');
     return;
   }
 

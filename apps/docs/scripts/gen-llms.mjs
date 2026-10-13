@@ -27,7 +27,7 @@ const pages = [];
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p);
-    else if (name.endsWith('.html') && name !== '404.html') pages.push(p);
+    else if (name.endsWith('.html') && name !== '404.html' && name !== 'README.html') pages.push(p);
   }
 })(dist);
 
