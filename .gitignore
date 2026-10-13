@@ -30,6 +30,7 @@ coverage/
 htmlcov/
 .coverage
 .pytest_cache/
+.hypothesis/          # schemathesis/hypothesis 属性测试的样例缓存（T-010 引入）
 .mypy_cache/
 .ruff_cache/
 junit.xml
