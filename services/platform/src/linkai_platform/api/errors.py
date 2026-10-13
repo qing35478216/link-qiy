@@ -19,6 +19,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from linkai_platform.domain.apps import (
+    AppError,
+    AppLimitExceeded,
+    AppNotFound,
+    AppVersionNotFound,
+)
 from linkai_platform.domain.auth import (
     AgreementNotAccepted,
     AuthError,
@@ -67,6 +73,22 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=404, content=_error_body("USER_NOT_FOUND", str(exc), request)
         )
+
+    @app.exception_handler(AppNotFound)
+    async def _app_not_found(request: Request, exc: AppNotFound) -> JSONResponse:
+        return JSONResponse(status_code=404, content=_error_body(exc.code, str(exc), request))
+
+    @app.exception_handler(AppVersionNotFound)
+    async def _version_not_found(request: Request, exc: AppVersionNotFound) -> JSONResponse:
+        return JSONResponse(status_code=404, content=_error_body(exc.code, str(exc), request))
+
+    @app.exception_handler(AppLimitExceeded)
+    async def _app_limit(request: Request, exc: AppLimitExceeded) -> JSONResponse:
+        return JSONResponse(status_code=403, content=_error_body(exc.code, str(exc), request))
+
+    @app.exception_handler(AppError)
+    async def _app_error(request: Request, exc: AppError) -> JSONResponse:
+        return JSONResponse(status_code=400, content=_error_body(exc.code, str(exc), request))
 
     @app.exception_handler(DomainError)
     async def _domain(request: Request, exc: DomainError) -> JSONResponse:

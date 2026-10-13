@@ -23,10 +23,16 @@ from linkai_platform.domain.repositories import (
     UserRepository,
 )
 from linkai_platform.infra.account_directory import SqlAlchemyAccountDirectory
+from linkai_platform.infra.app_repo import (
+    SqlAlchemyAppRepository,
+    SqlAlchemyAppVersionRepository,
+)
 from linkai_platform.infra.refresh_store import SqlAlchemyRefreshTokenStore
 from linkai_platform.infra.user_repo import SqlAlchemyUserRepository
 from linkai_platform.infra.wechat_mock import MockWechatProvider
+from linkai_platform.services.app_service import AppService
 from linkai_platform.services.auth_service import AuthService
+from linkai_platform.services.quota_service import QuotaService
 from linkai_platform.services.user_service import UserService
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -44,6 +50,8 @@ class AppContext:
     bus: MessageBus
     auth_service: AuthService
     user_service: UserService
+    app_service: AppService
+    quota_service: QuotaService
     wechat_provider: MockWechatProvider  # 测试/联调驱动扫码状态机
     session: Session
 
@@ -80,6 +88,13 @@ def get_context(request: Request) -> Iterator[AppContext]:
             bus=state.bus,
             auth_service=auth_service,
             user_service=UserService(users=users),
+            app_service=AppService(
+                apps=SqlAlchemyAppRepository(session),
+                versions=SqlAlchemyAppVersionRepository(session),
+                users=users,
+                bus=state.bus,
+            ),
+            quota_service=QuotaService(users=users),
             wechat_provider=state.wechat_provider,
             session=session,
         )
