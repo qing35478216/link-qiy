@@ -39,19 +39,14 @@ const (
 	HeaderTraceParent = "traceparent"
 )
 
-// legacyIdentityHeaders 是历史上用过、现已废弃的身份头名。
+// identityHeaders 是**网关注入的调用方身份**头清单。
 //
-// 仍然必须剥离：客户端可能仍在发送旧名，若不剥离就会静默穿透到下游，
-// 造成"看起来有身份、实际来源不明"的排查噩梦。
-var legacyIdentityHeaders = []string{
-	"X-Subject-Id",
-}
-
-// identityHeaders 是网关管辖的身份头全集。
+// 定义域要说准：这个清单只管"网关注入的身份"，不管"转发链信息"。
+// 承载客户端 IP 的头（X-Real-IP 等）语义上属于后者，
+// 由 infra/proxy 在 SetXForwarded() 处处理——
+// 把它们塞进这里会混淆语义，让人误以为 identityHeaders 是"所有该剥离的头"。
 //
-// 用途有二：
-//  1. 转发前逐个剥离，杜绝客户端伪造（见 sanitizeIdentityHeaders）。
-//  2. 作为「这些头归网关管」的唯一清单，避免新增下游服务时漏加。
+// 用途二：这是"这些头归网关管"的权责声明，新增下游服务时照此扩充。
 var identityHeaders = []string{
 	HeaderTenantID,
 	HeaderUserID,
@@ -191,7 +186,36 @@ func (t *Table) Upstreams() []string {
 	return out
 }
 
-// sanitizeIdentityHeaders 剥离客户端传入的全部身份头。
+// clientCredentialHeaders 是客户端凭证载体头。
+//
+// 为什么要剥离（主理人/qa-reviewer 指出，实测确认原样透传）：
+// 网关已完成鉴权与配额裁决，客户端再带一份凭证到下游，会形成
+// **双重鉴权入口**——下游若自行校验，看到的是客户端原始凭证而非
+// 网关的裁决结论，可能在网关已封禁/限流后仍按自己的判断放行。
+//
+// 剥离后下游只认网关注入的身份头（X-User-Id / X-Tenant-Id），
+// 网关成为唯一鉴权决策点。Cookie 同理：它承载浏览器会话，
+// 而网关不是面向浏览器的会话入口。
+var clientCredentialHeaders = []string{
+	"Authorization",
+	"Cookie",
+	"Proxy-Authorization",
+}
+
+// legacyIdentityHeaders 是历史上用过、现已废弃的身份头名。
+//
+// 由来：T-005 对齐时本网关曾用 X-Subject-Id，而下游 model-proxy
+// 读 X-User-Id，命名不一致导致真实身份断流、客户端伪造值畅通。
+// 统一为 X-User-Id 后 X-Subject-Id 成为废弃名。
+//
+// 为什么仍要剥离：客户端可能仍在发送旧名（灰度期、缓存的 SDK、
+// 第三方集成）。若不剥离，它会静默穿透到下游，造成"看起来有身份、
+// 实际来源不明"的排查噩梦。**废弃 ≠ 不管**，这是安全头与普通 API 的差别。
+var legacyIdentityHeaders = []string{
+	"X-Subject-Id",
+}
+
+// sanitizeIdentityHeaders 剥离客户端传入的身份头与凭证头。
 //
 // 网关是唯一可信的身份来源，因此下游服务收到的这些头必须 100% 来自网关。
 // 不做剥离的后果（实测）：客户端携带 X-User-Id: victim-9999 直连
@@ -201,6 +225,9 @@ func sanitizeIdentityHeaders(r *http.Request) {
 		r.Header.Del(h)
 	}
 	for _, h := range legacyIdentityHeaders {
+		r.Header.Del(h)
+	}
+	for _, h := range clientCredentialHeaders {
 		r.Header.Del(h)
 	}
 }

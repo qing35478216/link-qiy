@@ -516,3 +516,58 @@ func TestNoSubjectIDHeaderLeaks(t *testing.T) {
 		t.Errorf("legacy X-Subject-Id must not reach downstream, got %q", got)
 	}
 }
+
+// TestStripsClientCredentialHeaders 锁定 Authorization / Cookie 不透传。
+//
+// 背景（qa-reviewer 指出，我实测确认）：网关已完成鉴权与配额裁决，
+// 但客户端的 Authorization 会连同网关注入的 X-User-Id 一起到下游。
+// 下游若自行校验，看到的是**客户端原始凭证**而非网关的裁决结论——
+// 可能出现"网关已封禁/限流，下游却按自己的判断放行"的双重入口。
+// Cookie 同理：它承载浏览器会话，而网关不是会话入口。
+func TestStripsClientCredentialHeaders(t *testing.T) {
+	t.Parallel()
+
+	table := buildTable(t)
+	p := &recordingProxy{}
+	h := chain(table, p)
+
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
+	r.Header.Set("Authorization", "Bearer client-original-jwt")
+	r.Header.Set("Cookie", "session=abc123")
+	r.Header.Set("Proxy-Authorization", "Basic leaked")
+	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
+
+	h.ServeHTTP(httptest.NewRecorder(), r)
+
+	for _, header := range clientCredentialHeaders {
+		if got := p.lastReq.Header.Get(header); got != "" {
+			t.Errorf("%s 不应透传到下游，实际收到 %q", header, got)
+		}
+	}
+	// 剥离凭证头的同时，网关自己的身份头必须仍在
+	if got := p.lastReq.Header.Get(HeaderUserID); got != "user-1" {
+		t.Errorf("%s = %q, 剥离凭证头不应影响网关注入", HeaderUserID, got)
+	}
+}
+
+// TestLegacyIdentityHeaderStillStripped 锁定废弃头不被"清理"掉。
+//
+// X-Subject-Id 是 T-005 对齐前的旧命名。客户端在灰度期可能仍在发，
+// 若停止剥离它会静默穿透，造成"看起来有身份、来源不明"的排查噩梦。
+func TestLegacyIdentityHeaderStillStripped(t *testing.T) {
+	t.Parallel()
+
+	table := buildTable(t)
+	p := &recordingProxy{}
+	h := chain(table, p)
+
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
+	r.Header.Set("X-Subject-Id", "spoofed-old-name")
+	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
+
+	h.ServeHTTP(httptest.NewRecorder(), r)
+
+	if got := p.lastReq.Header.Get("X-Subject-Id"); got != "" {
+		t.Errorf("废弃头 X-Subject-Id 仍应被剥离，实际 %q", got)
+	}
+}
