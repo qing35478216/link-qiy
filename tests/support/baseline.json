@@ -1,0 +1,70 @@
+{
+  "commit": "c83f15f",
+  "guard_count": 13,
+  "guards": {
+    "security[console]": "PASS",
+    "security[service]": "PASS",
+    "tenant_context[console]": "PASS",
+    "tenant_context[service_keys]": "PASS",
+    "public_actually_public": "PASS",
+    "error_envelope_wellformed": "PASS",
+    "operations_have_summary": "PASS",
+    "write_ops_declare_4xx": "PASS",
+    "error_envelope_referenced": "PASS",
+    "login_inventory_complete": "PASS",
+    "login_agreement_consistency": "FAIL",
+    "no_default_in_error_enums": "PASS",
+    "known_gaps_provenance": "PASS"
+  },
+  "guard_errors": [],
+  "gaps": [
+    "GAP-CONTRACT-001",
+    "GAP-CONTRACT-002",
+    "GAP-CONTRACT-003",
+    "GAP-CONTRACT-004",
+    "GAP-CONTRACT-005",
+    "GAP-CONTRACT-006"
+  ],
+  "file_fingerprints": {
+    "tests/contracts/known_gaps.py": {
+      "bytes": 8615,
+      "sha256": "51033350d121b73a"
+    },
+    "tests/contracts/test_arch_guards.py": {
+      "bytes": 26512,
+      "sha256": "edd8732cf38ee1a9"
+    },
+    "tests/contracts/test_consumer_sdk_drift.py": {
+      "bytes": 7422,
+      "sha256": "68814ef5613a9e04"
+    },
+    "tests/contracts/test_consumer_openapi_valid.py": {
+      "bytes": 6000,
+      "sha256": "c3b197479c1fa35f"
+    },
+    "tests/contracts/test_provider_console.py": {
+      "bytes": 8213,
+      "sha256": "7ac62c53d93478d4"
+    },
+    "tests/contracts/test_provider_service.py": {
+      "bytes": 8484,
+      "sha256": "8d00085778d78625"
+    },
+    "tests/contracts/conftest.py": {
+      "bytes": 5465,
+      "sha256": "e1e8efdc64ee9bf8"
+    },
+    "tests/gate/gate_chain.py": {
+      "bytes": 34612,
+      "sha256": "236a14eb968c4a24"
+    },
+    "tests/golden-set/run_golden_set.py": {
+      "bytes": 14425,
+      "sha256": "3fc616fc6e7c9c08"
+    },
+    "tests/golden-set/schema/golden-case.schema.json": {
+      "bytes": 5101,
+      "sha256": "1610bd9c78afc8c6"
+    }
+  }
+}
