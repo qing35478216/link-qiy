@@ -34,7 +34,7 @@ gate: lint-contracts
 	@echo "== gate: 服务级检查均为占位 TODO，待各服务工单落地后启用 =="
 
 lint-contracts:
-	npm --prefix packages/contracts run lint
+	pnpm -C packages/contracts lint
 
 ## 测试入口（领域层单测 ≥70% 覆盖率为验收线，服务落地后填充）
 test:
