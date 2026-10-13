@@ -466,16 +466,60 @@ def load_territories() -> dict[str, set[str]] | None:
 
 
 def current_ticket_id() -> str | None:
-    """从分支名 feat/T-010-xxx 推断当前工单。"""
+    """推断当前改动属于哪个工单。
+
+    两个来源，按可靠性排序：
+
+    1. **分支名** —— 本地与 PR ref（`merge_request/123/feat/T-008-gateway`）
+       都能拿到，最可靠。
+    2. **提交信息** —— 兜底。CI 的 push 事件里分支名是短 sha，
+       `re.search(r"T-(\\d+)", "9f2a1b3")` 匹配不到。此时退回查
+       变更涉及的提交信息（约定格式 `... [T-010]`）。
+
+    没有兜底的后果是静默失效：识别不到工单 → `owned` 为 None →
+    领地检查直接返回 SKIP，越界改动就这么放过去了。
+    这正是「静默腐化比显式失败更危险」，所以宁可多写这几行。
+    """
     try:
         branch = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=REPO_ROOT, capture_output=True, text=True,
         ).stdout.strip()
     except OSError:
-        return None
+        branch = ""
     m = re.search(r"T-(\d+)", branch)
-    return f"T-{m.group(1)}" if m else None
+    if m:
+        return f"T-{m.group(1)}"
+    return _ticket_from_commits()
+
+
+def _ticket_from_commits(base: str = "main") -> str | None:
+    """从变更涉及的提交信息里提取工单号。
+
+    提交信息约定格式见 AGENTS.md 工程规范：`feat/fix/... (scope): 描述 [T-xxx]`。
+    多个工单混在一个分支时取第一个——本仓的做法是一分支一工单，
+    出现多个说明分支混了工单，那本身就该人工看。
+    """
+    try:
+        merge_base = subprocess.run(
+            ["git", "merge-base", base, "HEAD"],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        )
+        ref = merge_base.stdout.strip() if merge_base.returncode == 0 else base
+        out = subprocess.run(
+            ["git", "log", "--format=%s", "-20", f"{ref}..HEAD"],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        )
+    except OSError:
+        return None
+    if out.returncode != 0:
+        return None
+    tickets: list[str] = []
+    for line in out.stdout.splitlines():
+        for hit in re.findall(r"\[T-(\d+)\]", line):
+            if hit not in tickets:
+                tickets.append(hit)
+    return f"T-{tickets[0]}" if tickets else None
 
 
 def check_coverage_advisory() -> CheckResult:
