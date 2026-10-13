@@ -25,8 +25,10 @@ describe('LkConfigSection', () => {
       slots: { default: '<input class="f" />' },
     });
     const body = wrapper.find('.lk-config-section__body');
-    expect(body.isVisible()).toBe(true);
+    // v-show 契约：展开时无 display 内联样式，折叠后为 display:none
+    expect(body.attributes('style') ?? '').not.toContain('display: none');
     await wrapper.find('.lk-config-section__collapse').trigger('click');
-    expect(body.isVisible()).toBe(false);
+    expect(body.attributes('style')).toContain('display: none');
+    expect(wrapper.find('.lk-config-section__collapse').text()).toContain('展开');
   });
 });

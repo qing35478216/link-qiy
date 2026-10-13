@@ -40,7 +40,7 @@ function submit(): void {
 
 <template>
   <el-dialog
-    :model-value="props.modelValue"
+    :model-value="modelValue"
     title="创建应用"
     width="560px"
     :close-on-click-modal="false"

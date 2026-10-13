@@ -4,7 +4,7 @@
  * 配置七件套：基础/分享/模型+Prompt 落地，知识库/数据/插件/高级占位；
  * 任一分区改动即整页脏标记，保存 = 整页原子保存；未保存离开弹拦截。
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { useQuery } from '@tanstack/vue-query';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -32,10 +32,14 @@ const appQuery = useQuery({
   enabled: computed(() => Boolean(appId.value)),
 });
 
-onMounted(async () => {
-  const app = appQuery.data.value;
-  if (app) await configStore.load(appId.value, app);
-});
+// 应用信息就绪后加载配置七件套（查询异步完成，需 watch 而非 onMounted）
+watch(
+  appQuery.data,
+  async (app) => {
+    if (app) await configStore.load(appId.value, app);
+  },
+  { immediate: true },
+);
 
 async function onSave(): Promise<void> {
   try {

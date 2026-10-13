@@ -5,7 +5,6 @@
  * 此处用运行时守卫把 items 收窄为契约 App 类型——类型仍全部来自生成物。
  */
 import { consoleAPI } from '@/api';
-import { AppType } from '@linkai/sdk-ts/console';
 import type { App, AppConfig, ListApps200, ListAppsParams } from '@linkai/sdk-ts/console';
 
 export type AppsPage = {
@@ -17,11 +16,11 @@ export type AppsPage = {
 export function narrowApps(items: ListApps200['items']): App[] {
   const apps: App[] = [];
   for (const item of items) {
-    const record = item as Record<string, unknown>;
+    const record = item;
     const name = record.name;
     const type = record.type;
-    if (typeof name !== 'string' || typeof type !== 'string') continue;
-    if (!Object.hasOwn(AppType, type)) continue;
+    if (typeof name !== 'string') continue;
+    if (type !== 'lightweight' && type !== 'knowledge') continue;
     apps.push({
       name,
       type,

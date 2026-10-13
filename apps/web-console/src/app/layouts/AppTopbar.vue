@@ -6,6 +6,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuery } from '@tanstack/vue-query';
+import { LkQuotaBadge } from '@linkai/ui';
 import { ElMessageBox } from 'element-plus';
 import { consoleAPI } from '@/api';
 import { useAuthStore } from '@/app/stores/auth-store';

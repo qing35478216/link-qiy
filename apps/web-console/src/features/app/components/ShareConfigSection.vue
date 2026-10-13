@@ -3,11 +3,12 @@
  * ShareConfigSection —— 应用分享分区（契约 ShareConfig）。
  */
 import { computed } from 'vue';
-import { useConfigStore } from '@/features/app/stores/config-store';
 import { LkConfigSection, LkCopyField } from '@linkai/ui';
+import type { ShareConfig } from '@/types';
+import { useConfigStore } from '@/features/app/stores/config-store';
 
 const configStore = useConfigStore();
-const share = computed(() => configStore.draft.share ?? {});
+const share = computed<ShareConfig>(() => configStore.draft.share ?? {});
 const dirty = computed(
   () => JSON.stringify(share.value) !== JSON.stringify(configStore.saved.share ?? {}),
 );

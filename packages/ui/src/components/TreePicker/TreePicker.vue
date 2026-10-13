@@ -45,6 +45,7 @@ function onCheck(_node: unknown, { checkedKeys }: { checkedKeys: (string | numbe
       :data="data"
       :props="treeProps"
       show-checkbox
+      default-expand-all
       :check-strictly="!folderSelectAll"
       :default-checked-keys="modelValue"
       node-key="key"

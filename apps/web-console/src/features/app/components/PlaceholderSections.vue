@@ -7,13 +7,14 @@
 import { computed } from 'vue';
 import { LkConfigSection, LkSwitchList } from '@linkai/ui';
 import type { SwitchListItem } from '@linkai/ui';
+import type { AdvancedConfig, DataConfig, KnowledgeConfig, PluginsConfig } from '@/types';
 import { useConfigStore } from '@/features/app/stores/config-store';
 
 const configStore = useConfigStore();
-const knowledge = computed(() => configStore.draft.knowledge ?? {});
-const data = computed(() => configStore.draft.data ?? {});
-const plugins = computed(() => configStore.draft.plugins ?? {});
-const advanced = computed(() => configStore.draft.advanced ?? {});
+const knowledge = computed<KnowledgeConfig>(() => configStore.draft.knowledge ?? {});
+const data = computed<DataConfig>(() => configStore.draft.data ?? {});
+const plugins = computed<PluginsConfig>(() => configStore.draft.plugins ?? {});
+const advanced = computed<AdvancedConfig>(() => configStore.draft.advanced ?? {});
 
 const pluginSwitches = computed<SwitchListItem[]>(() => [
   { key: 'vision', label: '图像识别', value: (plugins.value.pluginIds ?? []).includes('vision'), disabled: true },

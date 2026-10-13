@@ -39,6 +39,7 @@ function isAuthPath(url: string | undefined): boolean {
 
 /** 401 刷新 + 重放：避免并发刷新，失败则清登录态 */
 let refreshing: Promise<string> | null = null;
+const retried = new WeakSet<InternalAxiosRequestConfig>();
 
 async function refreshAccessToken(): Promise<string> {
   const refreshToken = tokenStore.getRefreshToken();
@@ -72,7 +73,7 @@ consoleAxios.interceptors.response.use(
   async (error: AxiosError) => {
     const config = error.config;
     const isUnauthorized = error.response?.status === 401;
-    const alreadyRetried = config?.headers?.['x-retry-once'] === '1';
+    const alreadyRetried = config !== undefined && retried.has(config);
     if (!isUnauthorized || !config || isAuthPath(config.url) || alreadyRetried) {
       if (isUnauthorized && !tokenStore.getAccessToken()) {
         tokenStore.clear();
@@ -82,7 +83,7 @@ consoleAxios.interceptors.response.use(
     try {
       refreshing ??= refreshAccessToken();
       const accessToken = await refreshing;
-      config.headers['x-retry-once'] = '1';
+      retried.add(config);
       config.headers.Authorization = `Bearer ${accessToken}`;
       return consoleAxios.request(config);
     } catch {

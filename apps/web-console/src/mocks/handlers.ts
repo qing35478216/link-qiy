@@ -64,8 +64,8 @@ export const handlers: RequestHandler[] = [
   getSendSmsCodeMockHandler(),
   getLogoutMockHandler(),
   getGetMyProfileMockHandler(() => getMockState().profile),
-  getUpdateMyProfileMockHandler(({ request }) => {
-    const patch = request.body as Partial<UserProfile>;
+  getUpdateMyProfileMockHandler(async ({ request }) => {
+    const patch = (await request.json()) as Partial<UserProfile>;
     Object.assign(getMockState().profile, patch);
     return getMockState().profile;
   }),
@@ -78,7 +78,8 @@ export const handlers: RequestHandler[] = [
     const cursor = url.searchParams.get('cursor');
     const { items, nextCursor } = paginateApps(cursor, limit);
     const filtered = type === 'all' ? items : items.filter((app) => app.type === type);
-    return { items: filtered, nextCursor };
+    // Page.items 为通用 object 数组；展开为对象字面量以贴合索引签名类型
+    return { items: filtered.map((app) => ({ ...app })), nextCursor };
   }),
 
   getCreateAppMockHandler(async ({ request }) => {

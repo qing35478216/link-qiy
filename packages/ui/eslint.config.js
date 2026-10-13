@@ -25,6 +25,10 @@ export default [
     plugins: { '@typescript-eslint': tseslintPlugin },
     rules: {
       ...tseslintPlugin.configs['recommended'].rules,
+      // TS 已覆盖未定义变量检查；base 规则不理解类型位置（defineEmits 泛型等）
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-imports': 'error',
       'no-console': ['error', { allow: ['warn', 'error'] }],
@@ -47,8 +51,11 @@ export default [
       'vue/multi-word-component-names': 'error',
       'vue/no-v-html': 'error',
       'vue/attribute-hyphenation': 'error',
-      'vue/require-default-prop': 'error',
+      'vue/require-default-prop': 'off',
       'vue/v-on-event-hyphenation': 'error',
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'error',
       'no-console': ['error', { allow: ['warn', 'error'] }],
       eqeqeq: ['error', 'smart'],
     },

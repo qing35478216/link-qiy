@@ -4,9 +4,11 @@ import ElementPlus from 'element-plus';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 import App from './App.vue';
 import { router } from './app/router';
-import './app/guards/auth-guard';
+import { registerAuthGuard } from './app/guards/auth-guard';
 import { vueQueryPlugin } from './app/providers/query-client';
 import './app/styles/index.css';
+
+registerAuthGuard(router);
 
 async function bootstrap(): Promise<void> {
   // Phase 0：无后端联调期，默认经 MSW 跑 Mock（VITE_ENABLE_MSW=false 可关）

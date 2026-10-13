@@ -1,3 +1,4 @@
+<script setup lang="ts">
 /**
  * ConsoleLayout —— 控制台外壳：侧边栏（四组导航，220px 可折叠）+ 顶栏 + 内容区。
  * 视觉基准：linkai-screenshots/01-factory-智能体.png；内容区最大宽度 1200px 居中。
@@ -22,11 +23,7 @@ const breadcrumb = computed(() => {
     <div class="console-layout__main">
       <AppTopbar />
       <nav v-if="breadcrumb.length > 0" class="console-layout__breadcrumb">
-        <span
-          v-for="(item, index) in breadcrumb"
-          :key="item"
-          class="console-layout__crumb"
-        >
+        <span v-for="(item, index) in breadcrumb" :key="item" class="console-layout__crumb">
           <span v-if="index > 0" class="console-layout__separator">/</span>
           {{ item }}
         </span>

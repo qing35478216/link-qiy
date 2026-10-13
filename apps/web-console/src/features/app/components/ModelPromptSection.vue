@@ -7,11 +7,12 @@ import { computed } from 'vue';
 import { useQuery } from '@tanstack/vue-query';
 import { ElMessage } from 'element-plus';
 import { LkConfigSection, LkModelSelector, LkPromptEditor } from '@linkai/ui';
+import type { ModelPromptConfig } from '@/types';
 import { serviceAPI } from '@/api';
 import { useConfigStore } from '@/features/app/stores/config-store';
 
 const configStore = useConfigStore();
-const modelPrompt = computed(() => configStore.draft.modelPrompt ?? {});
+const modelPrompt = computed<ModelPromptConfig>(() => configStore.draft.modelPrompt ?? {});
 const dirty = computed(
   () =>
     JSON.stringify(modelPrompt.value) !== JSON.stringify(configStore.saved.modelPrompt ?? {}),

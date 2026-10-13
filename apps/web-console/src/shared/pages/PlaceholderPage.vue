@@ -4,6 +4,7 @@
  * 对应模块由后续工单以独立 feature 落地；结构保持与正式页一致。
  */
 import { useRoute } from 'vue-router';
+import { LkAppPage, LkEmptyState } from '@linkai/ui';
 
 const route = useRoute();
 const title = (route.meta.title as string | undefined) ?? '模块';

@@ -35,7 +35,7 @@ export default defineConfig({
       optimizer: {
         web: {
           enabled: true,
-          include: ['element-plus'],
+          include: ['element-plus', '@element-plus/icons-vue'],
         },
       },
     },
