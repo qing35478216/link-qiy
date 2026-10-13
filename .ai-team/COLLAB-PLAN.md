@@ -85,3 +85,25 @@ T-007 依赖虽已满足但排在 Wave 2 —— 是否前移到 Wave 1 以压缩
 ## 七、中断纪律（本项目已 3 次静默死亡）
 
 **任何成员停工前必须 `git add -A && git commit`**，宁可提交标注 WIP 的半成品。配额恢复后从提交处续跑，禁止从零重来。已在全部派单 prompt 中显式写入。
+
+---
+
+## 五、Wave 1 增补（2026-10-13 21:40）
+
+### T-002 收口合并 ✅
+- feat/T-002-account @ 6369ebf 已合并 main（`b376b3b`，解决 T-002.md 一处冲突：取石基 DONE 版本，b7a7752 的 IN-REVIEW 记录被实际合并取代）
+- **主理人独立复跑确认**（非采信报告）：pytest 全过 + 域覆盖 99.48%、mypy --strict 31 文件零问题、ruff 全过、53 文件领地零越界
+- 复验环境坑（已入记忆）：platform venv 需 `uv sync --all-extras`（dev extras 含 pytest/httpx）；pytest 须用 `.venv/bin/python -m pytest`（`uv run pytest` 会解析到错误环境）；沙箱拦 pytest tmp_path → `--basetemp=/tmp/xxx`
+
+### T-003 派单（串行解阻）
+- COLLAB-PLAN 发现的 T-002/T-003 领地完全重叠约束生效：T-002 合并后 T-003 立即派石基（推荐新分支 feat/T-003-apps）
+- 派单要点已传达：七件套 PUT 全量替换语义（v0.1.1 契约）、publish 不发未定义事件（内部 MessageBus）、quota/summary 的 walletBalance 占位 0
+
+### Wave 2 预览（T-005 落地后）
+- T-004 运行时引擎（刘畅）：排在 T-005 model-proxy 之后，避免集成返工；事件协议 v0.1.1 的 done 终局事件已就位
+- T-006 提示词框架（艾枫，model-proxy 同服务内）、T-007 计费（钱保）：Wave 2/3
+- 严明 T-010、渠畅 T-008 在途（worktree 已建，等回传）
+
+### 工程卫生
+- task-runner flaky 测试修复：test_due_retries 原假设退避恒 2s，实际带抖动（1~3s）→ 改为睡到记录自身的 next_retry_at；24/24 绿
+- `LinkAI复刻工程文档/`（用户原始文档副本，与 docs/ 重复）已 gitignore，不删用户文件
