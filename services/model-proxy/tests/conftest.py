@@ -9,7 +9,6 @@ from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
 import pytest
 
 from linkai_model_proxy.domain.adapter import (
@@ -230,9 +229,7 @@ def _no_real_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     import socket
 
     def _blocked(self: socket.socket, *args: object, **kwargs: object) -> None:
-        raise AssertionError(
-            f"测试中禁止真实出网（目标 {args[:2]}）——请用 respx mock 回放厂商响应"
-        )
+        raise AssertionError(f"测试中禁止真实出网（目标 {args[:2]}）——请用 respx mock 回放厂商响应")
 
     monkeypatch.setattr(socket.socket, "connect", _blocked)
     monkeypatch.setattr(socket.socket, "connect_ex", _blocked)

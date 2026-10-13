@@ -35,6 +35,7 @@ from linkai_model_proxy.domain.fallback import (
 from linkai_model_proxy.domain.invocation import (
     ChatRequest,
     ChatResponse,
+    FinishReason,
     StreamDelta,
     TokenUsage,
 )
@@ -268,22 +269,40 @@ class ModelInvocationService:
         prompt_tokens = 0
         completion_tokens = 0
         seq = 0
+        # 终局分片**先扣住不yield**：credits 要等计量算完才能填，
+        # 否则客户端会收到 usage.credits=0 的 done 事件（少算账）。
+        terminal: StreamDelta | None = None
 
         async for delta in adapter.stream(request, card=card, credential=credential):
-            seq += 1
             if delta.usage is not None:
                 prompt_tokens = delta.usage.prompt_tokens or prompt_tokens
                 completion_tokens = delta.usage.completion_tokens or completion_tokens
+            if delta.is_terminal:
+                terminal = delta
+                continue
+            seq += 1
             yield delta
 
-        latency = int((time.monotonic() - started) * 1000)
-        usage = TokenUsage.of(prompt_tokens, completion_tokens)
         if prompt_tokens == 0 and completion_tokens == 0:
             # 厂商未回 usage → 估算兜底，计量不能缺数
             est_prompt, est_completion = self._estimator.estimate(request, "")
-            usage = TokenUsage.of(est_prompt, est_completion)
-        usage = self._credits.with_credits(card.price, usage)
+            prompt_tokens, completion_tokens = est_prompt, est_completion
 
+        usage = self._credits.with_credits(
+            card.price, TokenUsage.of(prompt_tokens, completion_tokens)
+        )
+
+        # 终局分片：厂商给的就用其 finish_reason，没给则补一个 stop
+        # （保证消费端总能收到 done 事件，不必依赖连接关闭）
+        yield StreamDelta(
+            delta=terminal.delta if terminal is not None else "",
+            seq=seq + 1,
+            finish_reason=(terminal.finish_reason if terminal is not None else FinishReason.STOP)
+            or FinishReason.STOP,
+            usage=usage,
+        )
+
+        latency = int((time.monotonic() - started) * 1000)
         await self._telemetry.emit_metering(
             build_event(
                 tenant_id=ctx.tenant_id,

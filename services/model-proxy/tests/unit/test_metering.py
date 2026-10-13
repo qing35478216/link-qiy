@@ -33,7 +33,6 @@ from linkai_model_proxy.infra.memory import (
     InMemoryModelCatalog,
     InMemoryTelemetrySink,
 )
-
 from tests.conftest import (
     TENANT,
     ScriptedAdapter,
@@ -104,7 +103,10 @@ class TestMeteringEventContract:
             tenant_id=TENANT,
             provider="openai",
             card=CARD,
-            usage=TokenUsage.of(100, 50, ),
+            usage=TokenUsage.of(
+                100,
+                50,
+            ),
             outcome=MeteringOutcome.SUCCESS,
             latency_ms=120,
             attempt=1,
@@ -252,9 +254,7 @@ class TestMeteringIsUnbypassable:
         registry = AdapterRegistry()
         registry.register(
             "vendor-a",
-            ScriptedAdapterFactory(
-                ScriptedAdapter("vendor-a", error=ProviderCallError("503"))
-            ),
+            ScriptedAdapterFactory(ScriptedAdapter("vendor-a", error=ProviderCallError("503"))),
         )
         service = _service(telemetry, registry=registry)
         with pytest.raises(ModelCallFailure):
@@ -293,7 +293,9 @@ class TestMeteringIsUnbypassable:
         telemetry = InMemoryTelemetrySink()
         response = make_response("内容很长的一段回答文本", prompt_tokens=0, completion_tokens=0)
         registry = AdapterRegistry()
-        registry.register("vendor-a", ScriptedAdapterFactory(ScriptedAdapter("vendor-a", response=response)))
+        registry.register(
+            "vendor-a", ScriptedAdapterFactory(ScriptedAdapter("vendor-a", response=response))
+        )
         service = _service(telemetry, registry=registry)
         result = await service.complete(
             make_request("billing-model"), InvocationContext(tenant_id=TENANT, trace_id="m4")
@@ -312,9 +314,7 @@ def _service(
     if registry is None:
         reg.register(
             "vendor-a",
-            ScriptedAdapterFactory(
-                ScriptedAdapter("vendor-a", response=make_response("回答"))
-            ),
+            ScriptedAdapterFactory(ScriptedAdapter("vendor-a", response=make_response("回答"))),
         )
     return ModelInvocationService(
         registry=reg,

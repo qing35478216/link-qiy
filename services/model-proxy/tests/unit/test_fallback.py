@@ -24,7 +24,6 @@ from linkai_model_proxy.infra.memory import (
     InMemoryModelCatalog,
     InMemoryTelemetrySink,
 )
-
 from tests.conftest import (
     OTHER_TENANT,
     TENANT,
@@ -63,9 +62,7 @@ def build_service(
 
     catalog = InMemoryModelCatalog(public_models=cards)
     sink = telemetry or InMemoryTelemetrySink()
-    creds = credentials or InMemoryCredentialStore(
-        platform_keys={p: f"sk-{p}" for p in adapters}
-    )
+    creds = credentials or InMemoryCredentialStore(platform_keys={p: f"sk-{p}" for p in adapters})
     service = ModelInvocationService(
         registry=registry,
         catalog=catalog,
@@ -145,9 +142,7 @@ class TestFallbackExecution:
         assert telemetry.events[0].outcome is MeteringOutcome.SUCCESS
 
     async def test_falls_back_when_primary_unavailable(self) -> None:
-        primary = ScriptedAdapter(
-            "vendor-a", error=ProviderCallError("503 service unavailable")
-        )
+        primary = ScriptedAdapter("vendor-a", error=ProviderCallError("503 service unavailable"))
         backup = ScriptedAdapter("vendor-b", response=make_response("备选成功"))
         service, telemetry = build_service(
             cards={"primary-model": PRIMARY_WITH_CHAIN, "fallback-1": FALLBACK_1},
@@ -274,7 +269,12 @@ class TestStreamFallback:
             messages=(ChatMessage(role=MessageRole.USER, content="hi"),),
             stream=True,
         )
-        deltas = [d async for d in service.stream(request, InvocationContext(tenant_id=TENANT, trace_id="s1"))]
+        deltas = [
+            d
+            async for d in service.stream(
+                request, InvocationContext(tenant_id=TENANT, trace_id="s1")
+            )
+        ]
         assert [d.delta for d in deltas] == ["备", "选"]
         assert primary.calls == ["primary-model"]
         assert backup.calls == ["fallback-1"]

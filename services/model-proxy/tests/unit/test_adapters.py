@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 
 import httpx
@@ -18,6 +17,7 @@ from linkai_model_proxy.domain.errors import (
     ProviderCallError,
     ProviderRateLimitedError,
     ProviderUnavailableError,
+    SsrfBlockedError,
 )
 from linkai_model_proxy.domain.invocation import (
     ChatMessage,
@@ -34,7 +34,6 @@ from linkai_model_proxy.infra.adapters import (
 )
 from linkai_model_proxy.infra.http_client import VendorHttpClient
 from linkai_model_proxy.infra.ssrf import SsrfViolation
-
 from tests.conftest import make_card
 
 CREDENTIAL = ProviderCredential(provider="test", secret="sk-unit-test-key-123456")
@@ -90,9 +89,7 @@ class _OpenAICompatCase:
             "usage": {"prompt_tokens": 9, "completion_tokens": 4, "total_tokens": 13},
         }
         with respx.mock:
-            route = respx.post(self._chat_url()).mock(
-                return_value=httpx.Response(200, json=body)
-            )
+            route = respx.post(self._chat_url()).mock(return_value=httpx.Response(200, json=body))
             response = await adapter.complete(  # type: ignore[attr-defined]
                 _request(system=True), card=card, credential=CREDENTIAL
             )
@@ -150,9 +147,7 @@ class _OpenAICompatCase:
         assert deltas[-1].usage.prompt_tokens == 5
         assert deltas[-1].usage.completion_tokens == 2
 
-    async def test_rate_limit_maps_to_retriable_error(
-        self, vendor_http: VendorHttpClient
-    ) -> None:
+    async def test_rate_limit_maps_to_retriable_error(self, vendor_http: VendorHttpClient) -> None:
         adapter = self._adapter(vendor_http)
         card = make_card(code=self.model, provider="x")
         with respx.mock:
@@ -164,9 +159,7 @@ class _OpenAICompatCase:
                     _request(), card=card, credential=CREDENTIAL
                 )
 
-    async def test_server_error_maps_to_unavailable(
-        self, vendor_http: VendorHttpClient
-    ) -> None:
+    async def test_server_error_maps_to_unavailable(self, vendor_http: VendorHttpClient) -> None:
         adapter = self._adapter(vendor_http)
         card = make_card(code=self.model, provider="x")
         with respx.mock:
@@ -348,8 +341,11 @@ class TestAnthropicAdapter:
             {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "你"}},
             {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "好"}},
             {"type": "ping"},
-            {"type": "message_delta", "delta": {"stop_reason": "end_turn"},
-             "usage": {"input_tokens": 8, "output_tokens": 3}},
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": "end_turn"},
+                "usage": {"input_tokens": 8, "output_tokens": 3},
+            },
         )
         with respx.mock:
             respx.post("https://api.anthropic.com/v1/messages").mock(
@@ -389,10 +385,14 @@ class TestCredentialSafety:
         """厂商 base_url 指向内网时必须被 SSRF 闸门拦下（铁律 5）。"""
         adapter = OpenAIAdapter(vendor_http)
         card = make_card(code="gpt-4o", provider="openai")
-        evil = ProviderCredential(provider="openai", secret="sk-x", base_url="http://127.0.0.1:8080")
-        with pytest.raises(ProviderCallError) as exc:
+        evil = ProviderCredential(
+            provider="openai", secret="sk-x", base_url="http://127.0.0.1:8080"
+        )
+        with pytest.raises(SsrfBlockedError) as exc:
             await adapter.complete(_request(), card=card, credential=evil)
+        # 不可重试：SSRF 失败换模型也没用
         assert exc.value.retriable is False
+        assert exc.value.code == "EGRESS_BLOCKED"
 
     def test_ssrf_policy_rejects_http(self) -> None:
         from linkai_model_proxy.infra.ssrf import SsrfPolicy

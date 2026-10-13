@@ -16,7 +16,6 @@ from linkai_model_proxy.domain.errors import AdapterNotRegisteredError, DomainEr
 from linkai_model_proxy.domain.registry import AdapterRegistry
 from linkai_model_proxy.infra.adapters import builtin_registry, register_builtins
 from linkai_model_proxy.infra.http_client import VendorHttpClient
-
 from tests.conftest import ScriptedAdapter, ScriptedAdapterFactory, make_card
 
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "linkai_model_proxy"

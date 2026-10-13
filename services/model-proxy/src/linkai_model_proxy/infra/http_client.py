@@ -29,6 +29,7 @@ from linkai_model_proxy.domain.errors import (
     ProviderCallError,
     ProviderRateLimitedError,
     ProviderUnavailableError,
+    SsrfBlockedError,
 )
 from linkai_model_proxy.infra.ssrf import SsrfPolicy, SsrfViolation
 
@@ -131,8 +132,8 @@ class VendorHttpClient:
         try:
             self._policy.validate_url(url)
         except SsrfViolation as exc:
-            # SSRF 失败是不可重试的配置/安全问题——明确不可降级
-            raise ProviderCallError(f"出网被SSRF 闸门拦截：{exc}", retriable=False) from exc
+            # SSRF 失败是不可重试的安全事件：既不降级也不回显目标细节（避免探测）
+            raise SsrfBlockedError(f"出网请求被SSRF 闸门拦截：{exc}") from exc
 
     def _parse(self, response: httpx.Response) -> JsonDict:
         if response.status_code >= 400:
