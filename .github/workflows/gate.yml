@@ -30,14 +30,32 @@ jobs:
       - name: Contracts lint（spectral 契约机检，error 必须为零）
         run: pnpm -C packages/contracts lint
 
-      # ── QA 基础设施（T-010）：契约测试 + 架构守卫 ──────────────
-      # 为什么单独一个 job：这些检查是纯Python 的，不依赖 pnpm workspace，
-      # 独立 job 可以和上面的 Node 检查并行，且失败时能一眼看出是契约问题
-      # 还是构建问题。
-      #
-      # 注意 `.github/**` 不在 T-010 工单的「文件领地」内（那里只有
-      # `.ai-team/**, tests/**`）。此改动由主理人指派，理由是：
-      # 守卫不接 CI 就等于只在本地跑，两道防线形同虚设。
+      # ── 占位步骤：待服务代码落地后启用（对应工单启用时删除本注释并替换真实命令）──
+
+      # TODO [T-003~T-008] Python 服务 lint + 类型（uv + ruff + mypy --strict）：
+      #   - uses: astral-sh/setup-uv@v5
+      #   - run: uv run ruff check services/ && uv run mypy --strict services/*/src
+      - name: Python lint / typecheck（占位）
+        run: echo 'TODO [T-003~T-008] uv + ruff + mypy 待服务代码落地后启用'
+
+      # TODO [T-0xx] 前端 lint（web-console / web-marketing / web-studio 就绪后）：
+      #   - run: pnpm -r lint
+      - name: Node lint（占位）
+        run: echo 'TODO pnpm -r lint 待前端应用落地后启用'
+
+      # TODO 全量启用（现在仓库内还没有可扫的服务依赖）：Trivy 依赖/镜像漏洞扫描
+      #   - uses: aquasecurity/trivy-action@v0.28.0
+      #     with: { scan-type: fs, severity: CRITICAL,HIGH }
+      - name: Trivy dependency scan（占位）
+        run: echo 'TODO trivy fs 待服务依赖（requirements/pyproject）落地后启用'
+
+  # ── QA 基础设施（T-010）：契约测试 + 架构守卫 ──────────────
+  # 为什么单独一个 job：这些检查是纯 Python 的，不依赖 pnpm workspace，
+  # 独立 job 可与上面的 Node 检查并行，且失败时能一眼看出是契约问题还是构建问题。
+  #
+  # 注意 `.github/**` 不在 T-010 工单的「文件领地」内（那里只有
+  # `.ai-team/**, tests/**`）。此改动由主理人指派，理由是：
+  # 守卫不接 CI 就等于只在本地跑，两道防线形同虚设。
   qa-contract-tests:
     runs-on: ubuntu-latest
     steps:
@@ -144,25 +162,7 @@ jobs:
           path: gate-classification.json
           if-no-files-found: ignore
 
-      # ── 占位步骤：待服务代码落地后启用（对应工单启用时删除本注释并替换真实命令）──
-
-      # TODO [T-003~T-008] Python 服务 lint + 类型（uv + ruff + mypy --strict）：
-      #   - uses: astral-sh/setup-uv@v5
-      #   - run: uv run ruff check services/ && uv run mypy --strict services/*/src
-      - name: Python lint / typecheck（占位）
-        run: echo 'TODO [T-003~T-008] uv + ruff + mypy 待服务代码落地后启用'
-
-      # TODO [T-0xx] 前端 lint（web-console / web-marketing / web-studio 就绪后）：
-      #   - run: pnpm -r lint
-      - name: Node lint（占位）
-        run: echo 'TODO pnpm -r lint 待前端应用落地后启用'
-
-      # TODO 全量启用（现在仓库内还没有可扫的服务依赖）：Trivy 依赖/镜像漏洞扫描
-      #   - uses: aquasecurity/trivy-action@0.28.0
-      #     with: { scan-type: fs, severity: CRITICAL,HIGH }
-      - name: Trivy dependency scan（占位）
-        run: echo 'TODO trivy fs 待服务依赖（requirements/pyproject）落地后启用'
-
-      # 后续阶段补充：oasdiff 破坏性变更检测（Go 二进制，见 packages/contracts/scripts/diff.sh 安装提示）、
-      # schemathesis 提供者侧契约测试（需服务 BASE_URL，见 tests/contracts/README.md）、
-      # pytest 覆盖率门禁（领域层 ≥70%，Phase 1 恢复硬门禁）、Playwright E2E
+  # 后续阶段补充（在 gate-classifier job 内启用）：
+  #   - oasdiff 破坏性变更检测（Go 二进制，见 packages/contracts/scripts/diff.sh 安装提示）
+  #   - schemathesis 提供者侧契约测试（需服务 BASE_URL，见 tests/contracts/README.md）
+  # 另有 pytest 覆盖率门禁（领域层 ≥70%，Phase 1 恢复硬门禁）与 Playwright E2E 待接入。
