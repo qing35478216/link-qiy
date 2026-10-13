@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import LkDataTable from './DataTable.vue';
 
 interface Row {
@@ -18,11 +18,12 @@ const columns = [
 ];
 
 describe('LkDataTable', () => {
-  it('renders rows with formatter and slot override', () => {
+  it('renders rows with formatter and slot override', async () => {
     const wrapper = mount(LkDataTable, {
       props: { columns, rows, rowKey: 'id' },
       slots: { 'cell-name': '<b class="custom">slot-cell</b>' },
     });
+    await flushPromises();
     const texts = wrapper.findAll('td').map((cell) => cell.text());
     expect(texts).toContain('slot-cell');
     expect(texts).toContain('#a');
@@ -36,7 +37,7 @@ describe('LkDataTable', () => {
     expect(wrapper.text()).toContain('空着呢');
   });
 
-  it('emits page-change from pagination', () => {
+  it('renders pagination total', () => {
     const wrapper = mount(LkDataTable, {
       props: { columns, rows, rowKey: 'id', pagination: { page: 1, pageSize: 10, total: 42 } },
     });

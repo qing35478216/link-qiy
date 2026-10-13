@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vite/client", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@linkai/sdk-ts/console": ["../packages/sdk-ts/src/console.ts"],
+      "@linkai/sdk-ts/service": ["../packages/sdk-ts/src/service.ts"],
+      "@linkai/sdk-ts/msw/console": ["../packages/sdk-ts/src/console.msw.ts"],
+      "@linkai/sdk-ts/msw/service": ["../packages/sdk-ts/src/service.msw.ts"],
+      "@linkai/ui": ["../packages/ui/src/index.ts"],
+      "@linkai/ui/tokens.css": ["../packages/ui/src/styles/tokens.css"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts", "vitest.config.ts"]
+}

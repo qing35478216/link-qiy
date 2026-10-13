@@ -5,6 +5,8 @@
  */
 import { computed } from 'vue';
 
+const VAR_HINT = '支持 {{变量}} 占位符';
+
 const props = withDefaults(
   defineProps<{
     modelValue: string;
@@ -25,8 +27,9 @@ const emit = defineEmits<{
 const length = computed(() => props.modelValue.length);
 const overLimit = computed(() => length.value > props.maxLength);
 
-function onInput(event: Event): void {
-  emit('update:modelValue', (event.target as HTMLTextAreaElement).value);
+function onInput(value: string | Event): void {
+  const next = typeof value === 'string' ? value : (value.target as HTMLTextAreaElement).value;
+  emit('update:modelValue', next);
 }
 
 function insertVariable(name: string): void {
@@ -40,16 +43,14 @@ function insertVariable(name: string): void {
     <div class="lk-prompt-editor__toolbar">
       <div class="lk-prompt-editor__variables">
         <span class="lk-prompt-editor__variables-label">插入变量</span>
-        <el-tag
+        <span
           v-for="name in variables"
           :key="name"
           class="lk-prompt-editor__variable"
-          effect="plain"
-          round
           @click="insertVariable(name)"
         >
           {{ name }}
-        </el-tag>
+        </span>
       </div>
       <el-button text type="primary" :disabled="!modelValue" @click="emit('optimize', modelValue)">
         一键优化
@@ -71,7 +72,7 @@ function insertVariable(name: string): void {
       <span class="lk-prompt-editor__count" :class="{ 'lk-prompt-editor__count--over': overLimit }">
         {{ length }}/{{ maxLength }}
       </span>
-      <span class="lk-prompt-editor__hint">支持 {'{{变量}}'} 占位符</span>
+      <span class="lk-prompt-editor__hint">{{ VAR_HINT }}</span>
     </div>
   </div>
 </template>
@@ -103,7 +104,17 @@ function insertVariable(name: string): void {
 }
 
 .lk-prompt-editor__variable {
+  padding: 1px var(--lk-space-2);
+  font-size: var(--lk-font-size-xs);
+  color: var(--lk-text-secondary);
+  background: var(--lk-bg-hover);
+  border-radius: var(--lk-radius-round);
   cursor: pointer;
+}
+
+.lk-prompt-editor__variable:hover {
+  color: var(--lk-color-primary);
+  background: var(--lk-color-primary-bg);
 }
 
 .lk-prompt-editor__footer {

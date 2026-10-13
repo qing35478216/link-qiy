@@ -17,7 +17,7 @@ const data: TreePickerNode[] = [
 describe('LkTreePicker', () => {
   it('renders tree nodes and selection count', () => {
     const wrapper = mount(LkTreePicker, { props: { modelValue: ['kb-1'], data } });
-    expect(wrapper.text()).toContain('已选 1 项');
+    expect(wrapper.find('input').element.value).toBe('已选 1 项');
     expect(wrapper.text()).toContain('全部知识库');
     expect(wrapper.text()).toContain('产品手册');
   });

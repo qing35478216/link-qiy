@@ -41,6 +41,9 @@ importers:
         specifier: ^4.5.0
         version: 4.6.4(vue@3.5.43(typescript@5.7.2))
     devDependencies:
+      '@eslint/js':
+        specifier: ^9.17.0
+        version: 9.39.5
       '@faker-js/faker':
         specifier: ^9.3.0
         version: 9.9.0
@@ -65,6 +68,9 @@ importers:
       eslint-plugin-vue:
         specifier: ^10.0.0
         version: 10.11.1(@typescript-eslint/parser@8.71.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.7.2))(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(vue-eslint-parser@10.4.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0))
+      globals:
+        specifier: ^15.14.0
+        version: 15.15.0
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1(supports-color@7.2.0)
@@ -113,7 +119,7 @@ importers:
         version: 9.9.0
       msw:
         specifier: ^2.7.3
-        version: 2.15.0(@types/node@22.10.2)(typescript@5.9.3)
+        version: 2.15.0(@types/node@22.10.2)(typescript@5.7.2)
       typescript:
         specifier: ~5.7.2
         version: 5.7.2
@@ -123,6 +129,15 @@ importers:
       '@element-plus/icons-vue':
         specifier: ^2.3.1
         version: 2.3.2(vue@3.5.43(typescript@5.7.2))
+      '@eslint/js':
+        specifier: ^9.17.0
+        version: 9.39.5
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.18.2
+        version: 8.71.1(@typescript-eslint/parser@8.71.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.7.2))(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.7.2)
+      '@typescript-eslint/parser':
+        specifier: ^8.18.2
+        version: 8.71.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.7.2)
       '@vitejs/plugin-vue':
         specifier: ^6.0.1
         version: 6.0.10(vite@6.4.4(@types/node@22.10.2)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.43(typescript@5.7.2))
@@ -132,9 +147,24 @@ importers:
       element-plus:
         specifier: ^2.9.5
         version: 2.14.7(vue@3.5.43(typescript@5.7.2))
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
+      eslint-config-prettier:
+        specifier: ^10.0.1
+        version: 10.1.8(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))
+      eslint-plugin-vue:
+        specifier: ^10.0.0
+        version: 10.11.1(@typescript-eslint/parser@8.71.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.7.2))(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(vue-eslint-parser@10.4.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0))
+      globals:
+        specifier: ^15.14.0
+        version: 15.15.0
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1(supports-color@7.2.0)
+      prettier:
+        specifier: ^3.4.2
+        version: 3.9.10
       typescript:
         specifier: ~5.7.2
         version: 5.7.2
@@ -2084,6 +2114,10 @@ packages:
 
   globals@14.0.0:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
+    engines: {node: '>=18'}
+
+  globals@15.15.0:
+    resolution: {integrity: sha512-7ACyT3wmyp3I61S4fG682L0VA2RGD9otkqGJIwNUMF1SWUombIIk+af1unuDYgMm082aHYwD+mzJvv9Iu8dsgg==}
     engines: {node: '>=18'}
 
   globalthis@1.0.4:
@@ -5411,6 +5445,8 @@ snapshots:
 
   globals@14.0.0: {}
 
+  globals@15.15.0: {}
+
   globalthis@1.0.4:
     dependencies:
       define-properties: 1.2.1
@@ -5847,6 +5883,7 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - '@types/node'
+    optional: true
 
   muggle-string@0.4.1: {}
 

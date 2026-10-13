@@ -46,7 +46,8 @@ function formatPrimitive(value: unknown): string {
       <span v-if="!isContainer(data)" class="lk-json-viewer__primitive">{{ formatPrimitive(data) }}</span>
       <ul v-else class="lk-json-viewer__list">
         <li v-for="[key, value] in entries" :key="key">
-          <JsonNodeView :node-key="key" :value="value" :depth="0" :expand-depth="expandDepth" />
+          <!-- 顶层条目按 1 计数：expandDepth=1 时顶层折叠，逐层加深展开 -->
+          <JsonNodeView :node-key="key" :value="value" :depth="1" :expand-depth="expandDepth" />
         </li>
       </ul>
     </div>

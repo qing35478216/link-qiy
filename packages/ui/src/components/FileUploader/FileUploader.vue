@@ -4,12 +4,12 @@
  * 仅做前端校验与列表管理，实际上传由使用方接管 change 事件。
  */
 import { ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElUpload } from 'element-plus';
+import type { UploadFile, UploadFiles, UploadInstance } from 'element-plus';
 
 export interface UploadFileItem {
   name: string;
   size: number;
-  raw?: File;
   status: 'ready' | 'uploading' | 'done' | 'error';
   percent: number;
 }
@@ -31,6 +31,7 @@ const emit = defineEmits<{
 }>();
 
 const fileList = ref<UploadFileItem[]>([]);
+const uploadRef = ref<UploadInstance>();
 
 function validate(file: File): string | null {
   const maxBytes = props.maxSizeMb * 1024 * 1024;
@@ -46,46 +47,32 @@ function validate(file: File): string | null {
 }
 
 function onExceed(): void {
-  const message = `一次最多上传 ${props.multiple ? 10 : 1} 个文件`;
+  const message = `一次最多上传 10 个文件`;
   ElMessage.warning(message);
   emit('error', message);
 }
 
-function onChange(file: { raw?: File }, items: { raw?: File; name: string }[]): void {
-  const incoming = file.raw;
-  if (incoming) {
-    const invalid = validate(incoming);
-    if (invalid) {
-      ElMessage.warning(invalid);
-      emit('error', invalid);
-      fileList.value = fileList.value.filter((item) => item.name !== incoming.name);
-      return;
-    }
-    fileList.value.push({
-      name: incoming.name,
-      size: incoming.size,
-      raw: incoming,
-      status: 'ready',
-      percent: 0,
-    });
-  } else {
-    // 移除场景：以组件列表为准同步
-    fileList.value = items
-      .filter((item) => item.raw)
-      .map((item) => ({
-        name: item.name,
-        size: (item.raw as File).size,
-        raw: item.raw,
-        status: 'ready' as const,
-        percent: 0,
-      }));
+/** el-upload 的 change 回调：第一个参数是原始 File（EP 内部已挂 uid） */
+function onChange(file: UploadFile, _files: UploadFiles): void {
+  const invalid = validate(file);
+  if (invalid) {
+    uploadRef.value?.handleRemove(file);
+    ElMessage.warning(invalid);
+    emit('error', invalid);
+    return;
   }
-  emit('change', fileList.value);
+  fileList.value.push({
+    name: file.name,
+    size: file.size,
+    status: 'ready',
+    percent: 0,
+  });
+  emit('change', [...fileList.value]);
 }
 
 function remove(index: number): void {
   fileList.value.splice(index, 1);
-  emit('change', fileList.value);
+  emit('change', [...fileList.value]);
 }
 
 function formatSize(size: number): string {
@@ -98,12 +85,14 @@ function formatSize(size: number): string {
 <template>
   <div class="lk-file-uploader">
     <el-upload
+      ref="uploadRef"
       drag
       :accept="accept"
       :multiple="multiple"
       :disabled="disabled"
       :limit="10"
       :auto-upload="false"
+      :show-file-list="false"
       :on-change="onChange"
       :on-exceed="onExceed"
       class="lk-file-uploader__zone"

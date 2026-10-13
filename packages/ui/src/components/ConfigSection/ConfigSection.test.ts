@@ -24,8 +24,9 @@ describe('LkConfigSection', () => {
       props: { title: 'x', collapsible: true },
       slots: { default: '<input class="f" />' },
     });
-    expect(wrapper.find('.f').isVisible()).toBe(true);
+    const body = wrapper.find('.lk-config-section__body');
+    expect(body.isVisible()).toBe(true);
     await wrapper.find('.lk-config-section__collapse').trigger('click');
-    expect(wrapper.find('.f').isVisible()).toBe(false);
+    expect(body.isVisible()).toBe(false);
   });
 });

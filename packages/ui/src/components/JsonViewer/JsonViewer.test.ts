@@ -12,26 +12,26 @@ const data = {
 };
 
 describe('LkJsonViewer', () => {
-  it('renders top-level entries expanded at expandDepth', () => {
+  it('renders top-level entries with their immediate children at expandDepth 1', () => {
     const wrapper = mount(LkJsonViewer, { props: { data, expandDepth: 1 } });
     expect(wrapper.text()).toContain('modelPrompt');
     expect(wrapper.text()).toContain('{3}');
-    // 深度 1 折叠：modelCode 不可见
-    expect(wrapper.text()).not.toContain('gpt-4o');
+    // 深度 1：二级容器（variables）折叠，其子级不可见
+    expect(wrapper.text()).toContain('gpt-4o');
+    expect(wrapper.text()).not.toContain('张三');
   });
 
   it('expands deeper levels when expandDepth increases', () => {
     const wrapper = mount(LkJsonViewer, { props: { data, expandDepth: 2 } });
     expect(wrapper.text()).toContain('gpt-4o');
     expect(wrapper.text()).toContain('0.7');
-    // 深度 2 仍折叠 variables 内部
-    expect(wrapper.text()).not.toContain('张三');
+    expect(wrapper.text()).toContain('张三');
   });
 
   it('toggles a node on click', async () => {
     const wrapper = mount(LkJsonViewer, { props: { data, expandDepth: 1 } });
-    const toggle = wrapper.find('.lk-json-viewer__toggle');
-    await toggle.trigger('click');
+    expect(wrapper.text()).toContain('temperature');
+    await wrapper.find('.lk-json-node__toggle').trigger('click');
     expect(wrapper.text()).not.toContain('temperature');
   });
 

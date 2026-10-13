@@ -18,9 +18,8 @@ const props = withDefaults(
     data: TreePickerNode[];
     folderSelectAll?: boolean;
     placeholder?: string;
-    height?: number;
   }>(),
-  { folderSelectAll: true, placeholder: '请选择', height: 260 },
+  { folderSelectAll: true, placeholder: '请选择' },
 );
 
 const emit = defineEmits<{
@@ -48,7 +47,6 @@ function onCheck(_node: unknown, { checkedKeys }: { checkedKeys: (string | numbe
       show-checkbox
       :check-strictly="!folderSelectAll"
       :default-checked-keys="modelValue"
-      :height="height"
       node-key="key"
       class="lk-tree-picker__tree"
       @check="onCheck"

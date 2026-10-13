@@ -25,8 +25,7 @@ describe('LkSessionList', () => {
 
   it('filters by tab', async () => {
     const wrapper = mount(LkSessionList, { props: { sessions } });
-    const radios = wrapper.findAll('.el-radio-button');
-    await radios[1].trigger('click');
+    await wrapper.findAll('.el-radio-button input')[1].setValue(true);
     expect(wrapper.emitted('tab-change')).toEqual([['group']]);
     expect(wrapper.findAll('.lk-session-list__item')).toHaveLength(1);
   });

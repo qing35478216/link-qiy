@@ -41,6 +41,7 @@ export function useSseStream(url: string, options: UseSseStreamOptions = {}): Ss
   const retryCount = ref(0);
   const controller = new AbortController();
   let stopped = false;
+  let ended = false;
 
   function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,7 +61,7 @@ export function useSseStream(url: string, options: UseSseStreamOptions = {}): Ss
       let buffer = '';
       for (;;) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done || ended) break;
         buffer += decoder.decode(value, { stream: true });
         const frames = buffer.split('\n\n');
         buffer = frames.pop() ?? '';
@@ -68,7 +69,7 @@ export function useSseStream(url: string, options: UseSseStreamOptions = {}): Ss
           handleFrame(frame);
         }
       }
-      if (!stopped) {
+      if (!stopped && !ended) {
         status.value = 'closed';
         onEnd?.();
       }
@@ -93,6 +94,7 @@ export function useSseStream(url: string, options: UseSseStreamOptions = {}): Ss
     if (dataLines.length === 0) return;
     const payload = dataLines.join('\n');
     if (payload === '[DONE]') {
+      ended = true;
       status.value = 'closed';
       onEnd?.();
       return;

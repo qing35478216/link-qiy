@@ -1,0 +1,39 @@
+/* 全局样式：Design Token（packages/ui）+ Element Plus 完整引入 + 基础重置 */
+import '@linkai/ui/tokens.css';
+import 'element-plus/dist/index.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: var(--lk-font-size-sm);
+  color: var(--lk-text-primary);
+  background: var(--lk-bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 控制台表格/卡片统一走 Design Token */
+.el-table {
+  --el-table-border-color: var(--lk-border-color);
+  --el-table-header-bg-color: var(--lk-bg-hover);
+  font-size: var(--lk-font-size-sm);
+}
+
+.el-button {
+  font-size: var(--lk-font-size-sm);
+}
+
+.el-drawer {
+  border-radius: var(--lk-radius-modal) 0 0 var(--lk-radius-modal);
+}

@@ -2,7 +2,7 @@
 /**
  * JsonNodeView —— JsonViewer 的递归节点：容器可折叠，叶子直接渲染。
  */
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
   nodeKey: string;
@@ -17,10 +17,16 @@ function isContainer(value: unknown): boolean {
   return typeof value === 'object' && value !== null;
 }
 
-function entries(value: unknown): [string, unknown][] {
+function entriesOf(value: unknown): [string, unknown][] {
   if (Array.isArray(value)) return value.map((item, index) => [String(index), item]);
   return Object.entries(value as Record<string, unknown>);
 }
+
+const entries = computed(() => entriesOf(props.value));
+
+const summary = computed(() =>
+  Array.isArray(props.value) ? `[${entries.value.length}]` : `{${entries.value.length}}`,
+);
 
 function formatPrimitive(value: unknown): string {
   if (typeof value === 'string') return `"${value}"`;
@@ -38,12 +44,10 @@ function formatPrimitive(value: unknown): string {
     <span class="lk-json-node__toggle" @click="open = !open">
       <span class="lk-json-node__arrow">{{ open ? '▼' : '▶' }}</span>
       <span class="lk-json-node__key">{{ nodeKey }}: </span>
-      <span class="lk-json-node__summary">{{
-        Array.isArray(value) ? `[${entries(value).length}]` : `{${entries(value).length}}`
-      }}</span>
+      <span class="lk-json-node__summary">{{ summary }}</span>
     </span>
     <ul v-if="open" class="lk-json-node__list">
-      <li v-for="[key, child] in entries(value)" :key="key">
+      <li v-for="[key, child] in entries" :key="key">
         <JsonNodeView :node-key="key" :value="child" :depth="depth + 1" :expand-depth="expandDepth" />
       </li>
     </ul>

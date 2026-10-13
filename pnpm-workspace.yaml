@@ -1,8 +1,11 @@
 packages:
   - "packages/*"
   - "apps/*"
+# allowBuilds: 显式声明各依赖的构建脚本许可（pnpm 10 供应链策略）
+# '@scarf/scarf' 仅为 pnpm 遥测，禁用构建脚本
+# esbuild / vue-demi / msw 的 postinstall 是功能必需（esbuild 装二进制、vue-demi 切 Vue 版本、msw 生成 service worker）
 allowBuilds:
-  '@scarf/scarf': set this to true or false
-  esbuild: set this to true or false
-  msw: set this to true or false
-  vue-demi: set this to true or false
+  '@scarf/scarf': false
+  esbuild: true
+  msw: true
+  vue-demi: true
