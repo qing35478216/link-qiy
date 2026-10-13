@@ -16,7 +16,12 @@ import (
 
 // entry 是一个键的桶状态。
 type entry struct {
-	limiter  *rate.Limiter
+	limiter *rate.Limiter
+	// limit/burst 记录当前生效的配置。只在配置真正变化时才调用
+	// rate.Limiter 的 SetLimit/SetBurst——这两个方法会把令牌补满，
+	// 若每次请求都调用，桶会被无限续命，限流形同虚设。
+	limit   rate.Limit
+	burst   int
 	lastSeen time.Time
 }
 
@@ -111,19 +116,42 @@ func (l *Limiter) Allow(key string, budget ratelimit.Budget) (ratelimit.Decision
 
 	e, ok := l.buckets[key]
 	if !ok {
-		e = &entry{limiter: rate.NewLimiter(perSecond, burst)}
+		e = &entry{
+			limiter: rate.NewLimiter(perSecond, burst),
+			limit:   perSecond,
+			burst:   burst,
+		}
 		l.buckets[key] = e
 	}
-	// 桶按 key 共享，但配额可能因配置热更新而变化，故每次对齐一次速率。
-	e.limiter.SetLimit(perSecond)
-	e.limiter.SetBurst(burst)
+	// 仅在配额配置变化时同步到桶；SetLimit/SetBurst 会补满令牌，
+	// 每次都调用会让限流失效。同时用 SetXxxAt 传入注入的时钟，
+	// 避免内部 time.Now() 与测试时钟不一致。
+	if e.limit != perSecond {
+		e.limiter.SetLimitAt(now, perSecond)
+		e.limit = perSecond
+	}
+	if e.burst != burst {
+		e.limiter.SetBurstAt(now, burst)
+		e.burst = burst
+	}
 	e.lastSeen = now
 
-	// ReserveN 在返回 OK 时即已消费令牌（令牌被预留，桶状态已推进）。
-	// 用它而非 AllowN，是因为我们还需要 DelayFrom 给出建议重试时间。
+	// 用 ReserveN 而非 AllowN：ReserveN 能算出"要等多久才有令牌"，
+	// 便于返回 Retry-After。但 ReserveN 对未来时刻总是 ok=true，
+	// 所以必须自行判定 delay 是否可接受，不接受就 Cancel 并拒绝。
 	reservation := e.limiter.ReserveN(now, 1)
 	if !reservation.OK() {
-		delay := reservation.DelayFrom(now)
+		// n 超过突发容量：即使桶是空的也永远等不到，直接拒绝。
+		return ratelimit.Decision{
+			Allowed: false,
+			Limit:   budget.Limit,
+		}, nil
+	}
+
+	delay := reservation.DelayFrom(now)
+	if delay > 0 {
+		// 需要等未来才有令牌 → 本次拒绝，并把预留的令牌还回去。
+		reservation.CancelAt(now)
 		return ratelimit.Decision{
 			Allowed:    false,
 			Limit:      budget.Limit,
