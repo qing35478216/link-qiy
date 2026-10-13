@@ -48,6 +48,37 @@ class UserCreated(DomainEvent):
         )
 
 
+@dataclass(frozen=True)
+class AppPublished(DomainEvent):
+    """应用发布到广场（平台内部领域事件；跨服务 MQ 事件 v0.2 契约化后再外发）。
+
+    payload: app_id / tenant_id / version
+    """
+
+    def __init__(self, *, app_id: str, tenant_id: str, version: int) -> None:
+        object.__setattr__(self, "event_type", "AppPublished")
+        object.__setattr__(self, "occurred_at", utcnow())
+        object.__setattr__(
+            self,
+            "payload",
+            {"app_id": app_id, "tenant_id": tenant_id, "version": version},
+        )
+
+
+@dataclass(frozen=True)
+class AppUnpublished(DomainEvent):
+    """应用下架（平台内部领域事件，v0.2 契约化）。payload 同 AppPublished。"""
+
+    def __init__(self, *, app_id: str, tenant_id: str, version: int) -> None:
+        object.__setattr__(self, "event_type", "AppUnpublished")
+        object.__setattr__(self, "occurred_at", utcnow())
+        object.__setattr__(
+            self,
+            "payload",
+            {"app_id": app_id, "tenant_id": tenant_id, "version": version},
+        )
+
+
 class MessageBus(Protocol):
     """领域事件总线抽象。infra 层提供实现（Phase 0 内存；后续接 MQ）。"""
 
