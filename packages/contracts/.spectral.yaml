@@ -23,15 +23,8 @@ rules:
       field: operationId
       function: truthy
 
-  linkai-operation-id-unique:
-    description: operationId 全局唯一，避免生成物符号冲突。
-    given: $.paths[*][get,post,put,patch,delete,head,options]
-    severity: error
-    then:
-      field: operationId
-      function: spectral:unique-operation-id
-      functionOptions: {}
-
+  # 注：operationId 唯一性由 spectral:oas 的 operation-operationId-unique 提供，
+  #     继承后无需自定义（其内部函数 oasOpIdUnique 不对外注册）。
   linkai-operation-id-casing:
     description: operationId 使用 camelCase，与 TS / Python SDK 命名风格对齐。
     given: $.paths[*][get,post,put,patch,delete,head,options].operationId
@@ -204,13 +197,6 @@ rules:
       field: description
       function: truthy
 
-  linkai-no-unreferenced-schema:
-    description: 未被任何操作引用的 schema 属于死代码，删掉或标注。
-    given: $.components.schemas
-    severity: hint
-    then:
-      function: spectral:oas-unused-component
-
   # ─────────────────────────────────────────────────────────────
   # 分组 6：破坏性变更防护（配合 oasdiff，此处只做静态提醒）
   # ─────────────────────────────────────────────────────────────
@@ -221,3 +207,22 @@ rules:
     then:
       field: x-sunset
       function: truthy
+
+  # ─────────────────────────────────────────────────────────────
+  # 分组 7：继承规则调级
+  # 下面这些规则名来自 spectral:oas，此处只调整严重级别，不重定义逻辑。
+  # （不能自己重写：oasOpIdUnique / oasUnusedComponent 等内部函数未对外注册，
+  #   在自定义 ruleset 里直接引用会报 "Function is not defined"。）
+  # ─────────────────────────────────────────────────────────────
+  operation-operationId-unique: error
+  oas3-unused-component: hint
+  operation-operationId-valid-in-url: error
+  operation-tag-defined: error
+  operation-success-response: error
+  operation-description: warn
+  info-contact: off
+  info-description: warn
+  license-url: off
+  oas3-schema: error
+  no-eval-in-markdown: error
+  no-script-tags-in-markdown: error
