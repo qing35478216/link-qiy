@@ -348,3 +348,20 @@ class TestOpenApiGeneration:
         spec = create_app().openapi()
         assert "/v1/chat/completions" in spec["paths"]
         assert "/v1/models" in spec["paths"]
+
+
+class TestPlaygroundPage:
+    """Playground 最小可用页面（M-08）——挂载在本服务内，不越界改 web-console。"""
+
+    @pytest.mark.parametrize("path", ["/playground", "/playground/"])
+    async def test_page_served(self, client: httpx.AsyncClient, path: str) -> None:
+        response = await client.get(path)
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "模型试玩" in response.text
+
+    async def test_page_calls_internal_api(self, client: httpx.AsyncClient) -> None:
+        """页面必须调本服务的内部端点，而不是硬编码厂商地址。"""
+        response = await client.get("/playground")
+        assert "/_internal/playground/completions" in response.text
+        assert "/_internal/playground/models" in response.text

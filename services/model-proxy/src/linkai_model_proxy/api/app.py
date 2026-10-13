@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
@@ -76,7 +77,26 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(playground.router)
+    _mount_playground_page(app)
     return app
+
+
+def _mount_playground_page(app: FastAPI) -> None:
+    """挂载 Playground 最小可用页面（`/playground`）。
+
+    放在 model-proxy 侧是因为本工单领地限于 `services/model-proxy/src/**`；
+    控制台正式页面由 08-frontend-console 接手——后端契约不变即可整页替换。
+    """
+    static_dir = Path(__file__).parent / "static"
+    page = static_dir / "playground.html"
+    if not page.is_file():  # pragma: no cover - 打包缺文件时的显式失败
+        return
+    html = page.read_text(encoding="utf-8")
+
+    @app.get("/playground", include_in_schema=False)
+    @app.get("/playground/", include_in_schema=False)
+    async def playground_page() -> HTMLResponse:
+        return HTMLResponse(html)
 
 
 def _request_id() -> str:
