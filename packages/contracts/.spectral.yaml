@@ -37,48 +37,45 @@ rules:
   # ─────────────────────────────────────────────────────────────
   # 分组 2：多租户穿透（架构铁律 #6）
   # ─────────────────────────────────────────────────────────────
-  linkai-tenant-header-defined:
+  linkai-tenant-context-declared:
     description: >
-      除认证/健康检查等公共服务外，所有操作必须声明 tenant 标识。
-      二选一：X-Tenant-Id 请求头，或路径参数 {tenantId}。
-      未声明即视为裸查询风险，直接打回。
-    given: $.paths[*][get,post,put,patch,delete]
+      架构铁律 #6：所有数据操作带 tenant_id，不准裸查询。
+      契约层要求：操作须在 parameters 中声明 tenant 标识
+      （X-Tenant-Id 请求头，或 tenantId 路径/查询参数）。
+      确属公共服务的（健康检查、登录、定价页等），用 x-public: true 显式豁免。
+    # 两个坑，都踩过：
+    # 1) x-public 必须加引号，否则 JSONPath 解析成 x 减 public 的算术表达式；
+    # 2) 方法筛选不能写成 [get,post][?(...)]——第二个 filter 会作用在 operation 的
+    #    子键上（operationId/summary/...），导致同一问题重复报多次。
+    #    正确做法：方法名与豁免条件写在同一个 filter 里，@ 即 operation 对象。
+    given: "$.paths[*][?((@property === 'get' || @property === 'post' || @property === 'put' || @property === 'patch' || @property === 'delete') && @['x-public'] !== true)]"
     severity: warn
     then:
       function: schema
       functionOptions:
         schema:
           type: object
-          anyOf:
-            - type: object
-              required: [parameters]
-              properties:
-                parameters:
-                  type: array
-                  contains:
-                    type: object
-                    properties:
-                      name:
-                        enum: [X-Tenant-Id, tenantId, tenant_id]
-                    required: [name]
-            - type: object
-              properties:
-                security:
-                  type: array
-                  contains:
-                    type: object
-                    properties:
-                      publicAuth:
-                        const: []
-                    required: [publicAuth]
+          required: [parameters]
+          properties:
+            parameters:
+              type: array
+              contains:
+                type: object
+                required: [name]
+                properties:
+                  name:
+                    enum: [X-Tenant-Id, tenantId, tenant_id]
 
   # ─────────────────────────────────────────────────────────────
   # 分组 3：错误处理契约（客户端要能穷举失败分支）
   # ─────────────────────────────────────────────────────────────
   linkai-error-response-4xx:
-    description: 每个操作必须声明 4xx 响应，客户端才能穷举错误处理分支。
-    given: $.paths[*][get,post,put,patch,delete]
-    severity: error
+    description: >
+      有输入的操作必须声明 4xx 响应，客户端才能穷举错误处理分支。
+      无参数的探针类接口（如 healthz）豁免。
+    given: "$.paths[*][?((@property === 'get' || @property === 'post' || @property === 'put' || @property === 'patch' || @property === 'delete') && (@.requestBody || @.parameters))]"
+    # Phase 0 提速（甲方指令：进度优先）：v0.1 允许错误分支后补，降为 warn；冻结前用 lint:strict 兜底
+    severity: warn
     then:
       field: responses
       function: schema
@@ -103,7 +100,8 @@ rules:
   linkai-error-response-5xx:
     description: 每个操作必须声明 5xx 响应（通常为 500）。
     given: $.paths[*][get,post,put,patch,delete]
-    severity: error
+    # Phase 0 提速（甲方指令：进度优先）：v0.1 允许错误分支后补，降为 warn；冻结前用 lint:strict 兜底
+    severity: warn
     then:
       field: responses
       function: schema
@@ -119,32 +117,66 @@ rules:
     description: >
       错误响应体必须统一为 { code, message, requestId } 信封，
       否则前端无法做统一错误提示与链路追踪。
-    given: $.paths[*][*].responses[?(@property >= 400 && @property != 'default')].content.application/json.schema
+      判定：schema.required 数组须含三个字段，且 schema.properties 须声明它们。
+    given: $.paths[*][*].responses[?(@property >= 400 && @property != 'default')].content['application/json'].schema
     severity: error
     then:
       function: schema
       functionOptions:
         schema:
           type: object
-          required: [code, message, requestId]
+          required: [required, properties]
           properties:
-            code: { type: string }
-            message: { type: string }
-            requestId: { type: string }
+            required:
+              type: array
+              allOf:
+                - contains: { const: code }
+                - contains: { const: message }
+                - contains: { const: requestId }
+            properties:
+              type: object
+              required: [code, message, requestId]
+              # 注意：此处的 target 是「schema 定义」本身，而非它描述的数据。
+              # 所以 properties.code 的值形如 { type: string }（对象），
+              # 再往下一层断言 type === "string" 才是正确语义。
+              properties:
+                code:
+                  type: object
+                  properties:
+                    type: { const: string }
+                message:
+                  type: object
+                  properties:
+                    type: { const: string }
+                requestId:
+                  type: object
+                  properties:
+                    type: { const: string }
 
   linkai-success-envelope-requestId:
     description: >
       2xx 响应体应携带 requestId 便于排障（SSE 流式响应可豁免）。
-    given: $.paths[*][*].responses[?(@property >= 200 && @property < 300)].content.application/json.schema
+      判定：schema.required 数组须含 requestId 且在 properties 中声明。
+    given: $.paths[*][*].responses[?(@property >= 200 && @property < 300)].content['application/json'].schema
     severity: warn
     then:
       function: schema
       functionOptions:
         schema:
           type: object
-          required: [requestId]
+          required: [required, properties]
           properties:
-            requestId: { type: string }
+            required:
+              type: array
+              contains: { const: requestId }
+            properties:
+              type: object
+              required: [requestId]
+              properties:
+                requestId:
+                  type: object
+                  properties:
+                    type: { const: string }
 
   # ─────────────────────────────────────────────────────────────
   # 分组 4：安全基线（架构铁律 #5）
