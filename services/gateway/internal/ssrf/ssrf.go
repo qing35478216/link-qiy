@@ -9,6 +9,24 @@
 //  2. DNS 解析后校验：解析出的每一个 IP 都必须可公网路由。
 //  3. 连接时校验：net.Dialer.Control 在 TCP 握手前再校验一次实际连接的地址，
 //     防 DNS rebinding（校验时解析到公网 IP，连接时解析到内网 IP 的 TOCTOU 攻击）。
+//
+// # 与 model-proxy 的 SSRF 闸门的关系（T-005 对齐结论）
+//
+// 平台内有两处出网口，各有一道闸门，职责不同、**不合并**：
+//
+//   - 本包（Go）：网关自身的出网——反向代理到内部服务、未来的
+//     webhook 回调 / 链接预览 / 从 URL 导入。
+//   - model-proxy（Python）：调用外部模型厂商 API。URL 来自租户配置的
+//     base_url 或模型目录，因此不可信。
+//
+// 保留两道而非收敛为一道，理由：① 二者出网目标完全不同（内网 vs 外网厂商），
+// 网关闸门的白名单不能套到厂商调用上，反之亦然；② 收敛为单一来源需要
+// 把 Python 的出网全部改为经网关转发，会给对话热路径凭空加一跳网络延迟，
+// 与 docs/03 的性能预算冲突。
+//
+// 代价是两套规则可能漂移，因此 **网段表与主机黑名单逐条镜像对齐**，
+// 并由 TestRuleSetAlignmentWithModelProxy 锁定：任一侧改网段表，
+// 本包用例即失败。方向性约定：Go 侧可以更严（多阻断），不得更松（少阻断）。
 package ssrf
 
 import (
@@ -307,15 +325,23 @@ func (g *Guard) Client() *http.Client {
 	}
 }
 
-// blockedHostnames 是必然指向本地或元数据端点的主机名。
+// blockedHostnames 是必然指向本地或云元数据端点的主机名。
+//
+// 与 model-proxy 的 BLOCKED_HOSTS 对齐（T-005 对齐要求）。
+// 注意 100.100.100.200 是阿里云元数据端点——它落在 100.64.0.0/10 CGNAT 段内，
+// 已被 addrAllowed 拦下，这里显式列出仅为意图清晰。
 var blockedHostnames = map[string]struct{}{
-	"localhost":                {},
-	"localhost.localdomain":    {},
-	"ip6-localhost":            {},
-	"ip6-loopback":             {},
-	"metadata":                 {},
-	"metadata.google.internal": {},
-	"instance-data":            {},
+	"localhost":                  {},
+	"localhost.localdomain":      {},
+	"ip6-localhost":              {},
+	"ip6-loopback":               {},
+	"metadata":                   {},
+	"metadata.google.internal":   {},
+	"metadata.goog":              {},
+	"metadata.goog.internal":     {},
+	"instance-data":              {},
+	"instance-data.ec2.internal": {},
+	"100.100.100.200":            {},
 }
 
 // isBlockedHostname 判断主机名是否在黑名单。
@@ -365,18 +391,25 @@ func isCGNAT(v4 [4]byte) bool {
 	return v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127
 }
 
-// isReservedV4 判断是否落在保留/文档段。
+// isReservedV4 判断是否落在保留/文档/基准测试段。
+//
+// 段边界来自 IANA 特殊用途地址登记表。与 model-proxy 的
+// _BLOCKED_NETWORKS 逐条对齐（T-005 对齐要求），修改前请同步该表。
 func isReservedV4(v4 [4]byte) bool {
 	switch {
 	case v4[0] == 192 && v4[1] == 0 && v4[2] == 0: // 192.0.0.0/24 IETF 协议保留
 		return true
-	case v4[0] == 192 && v4[1] == 0 && v4[2] == 2: // TEST-NET-1
+	case v4[0] == 192 && v4[1] == 0 && v4[2] == 2: // 192.0.2.0/24 TEST-NET-1
 		return true
-	case v4[0] == 198 && (v4[1] == 51 && v4[2] == 100 || v4[1] == 18 && v4[2] == 19): // TEST-NET-2 / 基准测试
+	case v4[0] == 198 && (v4[1] == 18 || v4[1] == 19): // 198.18.0.0/15 基准测试网
+		// 注意是 /15：覆盖 198.18.0.0–198.19.255.255，
+		// 早先误写成 198.18/19 导致该段从网关侧漏放。
 		return true
-	case v4[0] == 203 && v4[1] == 0 && v4[2] == 113: // TEST-NET-3
+	case v4[0] == 198 && v4[1] == 51 && v4[2] == 100: // 198.51.100.0/24 TEST-NET-2
 		return true
-	case v4[0] >= 240: // 240.0.0.0/4 保留，含 255.255.255.255
+	case v4[0] == 203 && v4[1] == 0 && v4[2] == 113: // 203.0.113.0/24 TEST-NET-3
+		return true
+	case v4[0] >= 240: // 240.0.0.0/4 保留，含 255.255.255.255 广播
 		return true
 	default:
 		return false

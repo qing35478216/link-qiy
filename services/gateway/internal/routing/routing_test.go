@@ -180,8 +180,8 @@ func TestHandleInjectsTenantHeaders(t *testing.T) {
 	if got := p.lastReq.Header.Get(HeaderSurface); got != string(domain.SurfaceService) {
 		t.Errorf("%s = %q, want service", HeaderSurface, got)
 	}
-	if got := p.lastReq.Header.Get(HeaderSubjectID); got != "user-1" {
-		t.Errorf("%s = %q, want user-1", HeaderSubjectID, got)
+	if got := p.lastReq.Header.Get(HeaderUserID); got != "user-1" {
+		t.Errorf("%s = %q, want user-1", HeaderUserID, got)
 	}
 	if got := p.lastReq.Header.Get(HeaderTraceID); got == "" {
 		t.Error("trace id should be injected")
@@ -422,8 +422,12 @@ func TestNewTraceIDUnique(t *testing.T) {
 	}
 }
 
-// TestPreservesIncomingTraceID 验证已有的 trace ID 不被覆盖。
-func TestPreservesIncomingTraceID(t *testing.T) {
+// TestOverwritesIncomingTraceID 验证客户端提供的 trace ID 被网关覆盖而非沿用。
+//
+// 曾经的实现是「有则沿用、无则生成」，实测该值会原样透传到下游。
+// trace_id 是跨服务计费对账与审计的关联键，沿用客户端提供的值
+// 等于允许伪造对账依据，因此改为一律由网关生成。
+func TestOverwritesIncomingTraceID(t *testing.T) {
 	t.Parallel()
 
 	table := buildTable(t)
@@ -431,12 +435,84 @@ func TestPreservesIncomingTraceID(t *testing.T) {
 	h := chain(table, p)
 
 	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
-	r.Header.Set(HeaderTraceID, "upstream-trace-123")
+	r.Header.Set(HeaderTraceID, "attacker-controlled-trace")
 	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
 
 	h.ServeHTTP(httptest.NewRecorder(), r)
 
-	if got := p.lastReq.Header.Get(HeaderTraceID); got != "upstream-trace-123" {
-		t.Errorf("trace id = %q, want the incoming one preserved", got)
+	if got := p.lastReq.Header.Get(HeaderTraceID); got == "attacker-controlled-trace" {
+		t.Error("client-supplied trace id must not reach downstream")
+	}
+	if got := p.lastReq.Header.Get(HeaderTraceID); got == "" {
+		t.Error("gateway must always inject a trace id")
+	}
+}
+
+// TestStripsSpoofedIdentityHeaders 是安全回归用例（T-005 对齐时发现）。
+//
+// 背景：下游服务（model-proxy）信任网关注入的 X-Tenant-Id / X-User-Id。
+// 若网关只注入不剥离，客户端自带的同名头会穿透到下游，
+// 用户即可伪造身份 → 跨租户串账（铁律 6 红线）。
+//
+// 实测确认：修复前客户端携带 X-User-Id: victim-user-9999，
+// 到达上游时仍是该伪造值。
+func TestStripsSpoofedIdentityHeaders(t *testing.T) {
+	t.Parallel()
+
+	table := buildTable(t)
+	p := &recordingProxy{}
+	h := chain(table, p)
+
+	spoofed := map[string]string{
+		HeaderUserID:      "victim-user-9999",
+		HeaderTenantID:    "tenant-victim",
+		HeaderSurface:     string(domain.SurfaceEmbed),
+		HeaderTraceParent: "00-fake-fake-01",
+	}
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
+	for k, v := range spoofed {
+		r.Header.Set(k, v)
+	}
+	// 网关侧真实身份是 tenant-a / user-1 / service。
+	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
+
+	h.ServeHTTP(httptest.NewRecorder(), r)
+
+	// 每个头都必须是网关注入的可信值，而非客户端伪造值。
+	want := map[string]string{
+		HeaderUserID:   "user-1",
+		HeaderTenantID: "tenant-a",
+		HeaderSurface:  string(domain.SurfaceService),
+	}
+	for header, expected := range want {
+		if got := p.lastReq.Header.Get(header); got != expected {
+			t.Errorf("%s = %q, want gateway-injected %q", header, got, expected)
+		}
+	}
+	// traceparent 不由本层注入，必须是被剥离掉的空值。
+	if got := p.lastReq.Header.Get(HeaderTraceParent); got != "" {
+		t.Errorf("%s = %q, want it stripped from client input", HeaderTraceParent, got)
+	}
+}
+
+// TestNoSubjectIDHeaderLeaks 验证旧的 X-Subject-Id 命名不再出现。
+//
+// 曾用 X-Subject-Id 而下游读 X-User-Id：名字不一致导致下游读不到用户身份，
+// 同时客户端自带的 X-Subject-Id 反而会静默穿透。统一为 X-User-Id。
+func TestNoSubjectIDHeaderLeaks(t *testing.T) {
+	t.Parallel()
+
+	table := buildTable(t)
+	p := &recordingProxy{}
+	h := chain(table, p)
+
+	r := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/service/v1/chat", nil)
+	r.Header.Set("X-Subject-Id", "spoofed-subject")
+	r = r.WithContext(domain.WithPrincipal(r.Context(), principalWith("tenant-a")))
+
+	h.ServeHTTP(httptest.NewRecorder(), r)
+
+	if got := p.lastReq.Header.Get("X-Subject-Id"); got != "" {
+		t.Errorf("legacy X-Subject-Id must not reach downstream, got %q", got)
 	}
 }

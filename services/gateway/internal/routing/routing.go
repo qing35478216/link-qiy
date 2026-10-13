@@ -19,13 +19,18 @@ import (
 	"github.com/linkai/gateway/internal/domain"
 )
 
-// 注入下游的租户头（铁律 6：tenant_id 从网关注入，全链路透传）。
-// 下游服务只信任来自网关的该头，不接受客户端直传。
+// 注入下游的身份头（铁律 6：tenant_id 从网关注入，全链路透传）。
+//
+// 安全要求（T-005 对齐）：下游服务只信任来自网关的这些头，不接受客户端直传。
+// 因此网关注入前**必须先剥离**客户端传入的同名头——否则用户可以
+// 携带 X-Tenant-Id / X-User-Id 直接伪造身份，造成跨租户串账。
 const (
-	// HeaderTenantID 租户头，与鉴权层同名。
+	// HeaderTenantID 租户头，与鉴权层同名，契约 schemas/common.yaml 有定义。
 	HeaderTenantID = "X-Tenant-Id"
-	// HeaderSubjectID 调用方主体头。
-	HeaderSubjectID = "X-Subject-Id"
+	// HeaderUserID 调用方用户头。命名与下游服务（model-proxy）约定一致，
+	// 不要改成 X-Subject-Id 之类——名字不一致会导致下游读到空值，
+	// 更糟的是客户端自带的 X-Subject-Id 会静默穿透到下游。
+	HeaderUserID = "X-User-Id"
 	// HeaderSurface 入口面头，供下游做差异化响应。
 	HeaderSurface = "X-Gateway-Surface"
 	// HeaderTraceID 链路追踪 ID，贯穿网关→服务→插件/模型。
@@ -33,6 +38,27 @@ const (
 	// HeaderTraceParent 上游 traceparent，供 OTel 上下文延续。
 	HeaderTraceParent = "traceparent"
 )
+
+// legacyIdentityHeaders 是历史上用过、现已废弃的身份头名。
+//
+// 仍然必须剥离：客户端可能仍在发送旧名，若不剥离就会静默穿透到下游，
+// 造成"看起来有身份、实际来源不明"的排查噩梦。
+var legacyIdentityHeaders = []string{
+	"X-Subject-Id",
+}
+
+// identityHeaders 是网关管辖的身份头全集。
+//
+// 用途有二：
+//  1. 转发前逐个剥离，杜绝客户端伪造（见 sanitizeIdentityHeaders）。
+//  2. 作为「这些头归网关管」的唯一清单，避免新增下游服务时漏加。
+var identityHeaders = []string{
+	HeaderTenantID,
+	HeaderUserID,
+	HeaderSurface,
+	HeaderTraceID,
+	HeaderTraceParent,
+}
 
 // Upstream 是一个后端服务。
 type Upstream struct {
@@ -165,6 +191,20 @@ func (t *Table) Upstreams() []string {
 	return out
 }
 
+// sanitizeIdentityHeaders 剥离客户端传入的全部身份头。
+//
+// 网关是唯一可信的身份来源，因此下游服务收到的这些头必须 100% 来自网关。
+// 不做剥离的后果（实测）：客户端携带 X-User-Id: victim-9999 直连
+// 网关，该值会原样透传到 model-proxy，而后者信任它作为调用方身份。
+func sanitizeIdentityHeaders(r *http.Request) {
+	for _, h := range identityHeaders {
+		r.Header.Del(h)
+	}
+	for _, h := range legacyIdentityHeaders {
+		r.Header.Del(h)
+	}
+}
+
 // NewTraceID 生成一个新的链路追踪 ID。
 //
 // 用 crypto/rand 而非 math/rand：trace ID 会出现在日志与下游响应里，
@@ -288,13 +328,22 @@ func (m *Middleware) Handle(next http.Handler) http.Handler {
 			}
 		}
 
+		// 先剥离客户端伪造的身份头，再注入可信值。
+		//
+		// 顺序不能反：若先注入再剥离会把可信值也删掉；
+		// 若只注入不剥离，客户端自带的同名头会在 Set 之外的其他
+		// 头（如 X-User-Id）穿透到下游，造成身份伪造与跨租户串账。
+		sanitizeIdentityHeaders(r)
+
 		// 注入租户上下文，供下游服务消费（铁律 6）。
 		r.Header.Set(HeaderTenantID, p.TenantID)
-		r.Header.Set(HeaderSubjectID, p.SubjectID)
-		r.Header.Set(HeaderSurface, string(u.Surface))
-		if r.Header.Get(HeaderTraceID) == "" {
-			r.Header.Set(HeaderTraceID, NewTraceID())
+		if p.SubjectID != "" {
+			r.Header.Set(HeaderUserID, p.SubjectID)
 		}
+		r.Header.Set(HeaderSurface, string(u.Surface))
+		// trace_id 一律由网关生成：客户端提供的值不可信，
+		// 放任其穿透等于允许伪造审计与计费对账的关联键。
+		r.Header.Set(HeaderTraceID, NewTraceID())
 
 		m.proxy.Serve(w, r, u)
 	})
