@@ -1,0 +1,15 @@
+{
+  "name": "@linkai/docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LinkAI 文档站（VitePress）：目录树 + MD + llms.txt 输出，与仓库 docs/ 同步构建",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build && node scripts/gen-llms.mjs",
+    "docs:preview": "vitepress preview",
+    "sync": "node scripts/sync-docs.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "1.5.0"
+  }
+}
