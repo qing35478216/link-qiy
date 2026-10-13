@@ -1,0 +1,139 @@
+/*
+ * LinkAI 控制台 Design Token —— 与 docs/04-模块级实施规格.md 2.2 节逐条对齐。
+ * 铁律：组件内禁止硬编码 hex，一律消费本文件的 CSS 变量；暗色模式只改变量值。
+ */
+:root {
+  /* ---- 颜色：主色 / 语义色 ---- */
+  --lk-color-primary: #378add;
+  --lk-color-primary-hover: #5aa0e8;
+  --lk-color-primary-active: #2b6fb0;
+  --lk-color-primary-bg: #e8f2fc;
+  --lk-color-success: #1d9e75;
+  --lk-color-success-bg: #e6f5ef;
+  --lk-color-warning: #ba7517;
+  --lk-color-warning-bg: #faf3e6;
+  --lk-color-danger: #e24b4a;
+  --lk-color-danger-bg: #fbeaea;
+  --lk-color-purple: #7f5dd0;
+  --lk-color-purple-bg: #f1ecfb;
+
+  /* ---- 文本：主 / 次 / 弱 ---- */
+  --lk-text-primary: #1f2328;
+  --lk-text-secondary: #5f5e5a;
+  --lk-text-weak: #888780;
+  --lk-text-inverse: #ffffff;
+
+  /* ---- 背景：页 / 卡 / 悬浮 ---- */
+  --lk-bg-page: #f7f7f5;
+  --lk-bg-card: #ffffff;
+  --lk-bg-hover: #f1efe8;
+  --lk-bg-mask: rgba(31, 35, 40, 0.5);
+
+  /* ---- 边框（0.5px 视觉）---- */
+  --lk-border-color: #e5e3dc;
+  --lk-border-color-strong: #d3d0c6;
+
+  /* ---- 圆角：组件 8 / 卡片 12 / 弹窗 16 ---- */
+  --lk-radius-component: 8px;
+  --lk-radius-card: 12px;
+  --lk-radius-modal: 16px;
+  --lk-radius-round: 999px;
+
+  /* ---- 间距体系：4/8/12/16/24/32 ---- */
+  --lk-space-1: 4px;
+  --lk-space-2: 8px;
+  --lk-space-3: 12px;
+  --lk-space-4: 16px;
+  --lk-space-6: 24px;
+  --lk-space-8: 32px;
+
+  /* ---- 字号：12 辅助 / 13 正文 / 14 页头 / 16 页面标题 / 20 数字 ---- */
+  --lk-font-size-xs: 12px;
+  --lk-font-size-sm: 13px;
+  --lk-font-size-md: 14px;
+  --lk-font-size-lg: 16px;
+  --lk-font-size-xl: 20px;
+
+  /* ---- 布局 ---- */
+  --lk-sidebar-width: 220px;
+  --lk-sidebar-width-collapsed: 64px;
+  --lk-topbar-height: 56px;
+  --lk-content-max-width: 1200px;
+
+  /* ---- 阴影 ---- */
+  --lk-shadow-card: 0 1px 2px rgba(31, 35, 40, 0.04);
+  --lk-shadow-float: 0 4px 16px rgba(31, 35, 40, 0.12);
+
+  /* ---- 动效 ---- */
+  --lk-transition-fast: 0.15s ease;
+  --lk-transition-base: 0.25s ease;
+
+  /* ---- 版本徽标（QuotaBadge 消费）---- */
+  --lk-plan-basic-bg: #f1efe8;
+  --lk-plan-basic-text: #5f5e5a;
+  --lk-plan-pro-bg: #faf3e6;
+  --lk-plan-pro-text: #ba7517;
+  --lk-plan-enterprise-bg: #e8f2fc;
+  --lk-plan-enterprise-text: #378add;
+}
+
+/* 暗色模式：所有颜色走 CSS 变量，组件零改动 */
+[data-theme='dark'] {
+  --lk-color-primary: #4d94dd;
+  --lk-color-primary-hover: #6ba9e6;
+  --lk-color-primary-active: #3579bd;
+  --lk-color-primary-bg: #1c2f42;
+  --lk-color-success: #3bb98d;
+  --lk-color-success-bg: #142e26;
+  --lk-color-warning: #d29a3c;
+  --lk-color-warning-bg: #33280f;
+  --lk-color-danger: #e86b6a;
+  --lk-color-danger-bg: #3a1d1d;
+  --lk-color-purple: #a58ae4;
+  --lk-color-purple-bg: #251d3d;
+
+  --lk-text-primary: #ecebe8;
+  --lk-text-secondary: #b3b1ab;
+  --lk-text-weak: #8a8880;
+
+  --lk-bg-page: #191a1c;
+  --lk-bg-card: #222427;
+  --lk-bg-hover: #2c2e31;
+
+  --lk-border-color: #383a3e;
+  --lk-border-color-strong: #47494e;
+
+  --lk-plan-basic-bg: #2c2e31;
+  --lk-plan-basic-text: #b3b1ab;
+  --lk-plan-pro-bg: #33280f;
+  --lk-plan-pro-text: #d29a3c;
+  --lk-plan-enterprise-bg: #1c2f42;
+  --lk-plan-enterprise-text: #4d94dd;
+
+  --lk-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --lk-shadow-float: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Element Plus 主题变量对齐 Design Token（一处覆盖，全站生效） */
+:root {
+  --el-color-primary: var(--lk-color-primary);
+  --el-color-success: var(--lk-color-success);
+  --el-color-success-light-8: var(--lk-color-success-bg);
+  --el-color-warning: var(--lk-color-warning);
+  --el-color-warning-light-8: var(--lk-color-warning-bg);
+  --el-color-danger: var(--lk-color-danger);
+  --el-color-danger-light-8: var(--lk-color-danger-bg);
+  --el-text-color-primary: var(--lk-text-primary);
+  --el-text-color-regular: var(--lk-text-secondary);
+  --el-text-color-secondary: var(--lk-text-weak);
+  --el-border-color: var(--lk-border-color);
+  --el-border-color-light: var(--lk-border-color);
+  --el-bg-color: var(--lk-bg-card);
+  --el-bg-color-overlay: var(--lk-bg-card);
+  --el-fill-color-light: var(--lk-bg-hover);
+  --el-fill-color-blank: var(--lk-bg-card);
+  --el-border-radius-base: var(--lk-radius-component);
+  --el-border-radius-small: 6px;
+  --el-font-size-small: var(--lk-font-size-xs);
+  --el-font-size-base: var(--lk-font-size-sm);
+}
