@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>模型试玩 · Playground</title>
+    <!--
+      LinkAI model-proxy Playground 最小可用前端（M-08）
+
+      为什么放在 model-proxy 服务内：
+        工单 T-005 的文件领地是 services/model-proxy/src/**，不越界改apps/web-console。
+        本页是"能跑通、能验证"的最小实现；控制台正式页面由 08-frontend-console
+        在 T-011 后续做视觉与交互对齐，届时可整页替换，后端接口不变。
+
+      鉴权说明：
+        租户上下文由网关注入（X-Tenant-Id）。本地直连调试时可用 ?tenant=xxx 覆盖，
+        生产部署下该参数无效（网关会剥离外部传入的身份头）。
+    -->
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #171a21;
+        --border: #262b36;
+        --text: #e6e8ee;
+        --muted: #98a0b3;
+        --accent: #4c8dff;
+        --ok: #3fb950;
+        --err: #f85149;
+        --radius: 10px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+      header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+      header span { color: var(--muted); font-size: 12px; }
+      main {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 16px;
+        padding: 16px 24px 32px;
+        align-items: start;
+      }
+      @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+      }
+      label { display: block; font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+      .field { margin-bottom: 14px; }
+      select, textarea, input[type="number"] {
+        width: 100%;
+        background: #0f1115;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font: inherit;
+      }
+      textarea { min-height: 120px; resize: vertical; }
+      button {
+        background: var(--accent);
+        color: #fff;
+        border: 0;
+        border-radius: 8px;
+        padding: 9px 18px;
+        font: inherit;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .output {
+        white-space: pre-wrap;
+        word-break: break-word;
+        min-height: 160px;
+        background: #0f1115;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+      }
+      .meta { margin-top: 12px; font-size: 12px; color: var(--muted); }
+      .meta b { color: var(--text); font-weight: 600; }
+      .err { color: var(--err); }
+      .ok { color: var(--ok); }
+      .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>模型试玩 Playground</h1>
+      <span>统一 OpenAI 兼容网关 · 计量照常计入租户积分</span>
+    </header>
+
+    <main>
+      <aside class="panel">
+        <div class="field">
+          <label for="model">模型</label>
+          <select id="model"></select>
+          <div class="hint" id="modelHint">加载中…</div>
+        </div>
+        <div class="field">
+          <label for="system">System 提示词（可选）</label>
+          <textarea id="system" style="min-height: 72px" placeholder="留空则不带 system"></textarea>
+        </div>
+        <div class="field">
+          <label for="temperature">Temperature（0 - 2）</label>
+          <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7" />
+        </div>
+        <div class="field">
+          <label for="maxTokens">Max Tokens（可选）</label>
+          <input id="maxTokens" type="number" min="1" max="32000" placeholder="留空用模型默认" />
+        </div>
+      </aside>
+
+      <section class="panel">
+        <div class="field">
+          <label for="prompt">输入</label>
+          <textarea id="prompt" placeholder="说点什么…"></textarea>
+        </div>
+        <button id="send">发送</button>
+        <div class="meta" id="status"></div>
+        <div class="output" id="output" style="margin-top: 12px"></div>
+        <div class="meta" id="usage"></div>
+      </section>
+    </main>
+
+    <script>
+      // 租户上下文：优先取地址栏 ?tenant=，否则回落到本地调试默认值
+      const params = new URLSearchParams(location.search);
+      const TENANT = params.get("tenant") || "dev-tenant";
+      const BASE = params.get("api") || "";
+      const headers = { "Content-Type": "application/json", "X-Tenant-Id": TENANT };
+
+      const $ = (id) => document.getElementById(id);
+      const output = $("output");
+      const statusEl = $("status");
+      const usageEl = $("usage");
+      const sendBtn = $("send");
+
+      async function loadModels() {
+        try {
+          const res = await fetch(`${BASE}/_internal/playground/models`, { headers });
+          const body = await res.json();
+          if (!res.ok) throw new Error(body.code || res.statusText);
+          $("model").innerHTML = body.data
+            .map((code) => `<option value="${code}">${code}</option>`)
+            .join("");
+          $("modelHint").textContent = `${body.data.length} 个可试玩模型`;
+        } catch (err) {
+          $("modelHint").innerHTML = `<span class="err">模型列表加载失败：${err.message}</span>`;
+        }
+      }
+
+      async function send() {
+        const prompt = $("prompt").value.trim();
+        if (!prompt) {
+          statusEl.innerHTML = '<span class="err">请输入内容</span>';
+          return;
+        }
+        sendBtn.disabled = true;
+        output.textContent = "";
+        usageEl.textContent = "";
+        statusEl.textContent = "调用中…";
+
+        const payload = {
+          model: $("model").value,
+          prompt,
+          temperature: Number($("temperature").value),
+        };
+        const system = $("system").value.trim();
+        if (system) payload.system = system;
+        const maxTokens = $("maxTokens").value;
+        if (maxTokens) payload.maxTokens = Number(maxTokens);
+
+        const started = performance.now();
+        try {
+          const res = await fetch(`${BASE}/_internal/playground/completions`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+          });
+          const body = await res.json();
+          const elapsed = Math.round(performance.now() - started);
+          if (!res.ok) {
+            statusEl.innerHTML = `<span class="err">失败（${res.status}）</span>`;
+            output.innerHTML = `<span class="err">${body.code || "ERROR"}：${body.message || ""}</span>`;
+            return;
+          }
+          output.textContent = body.content;
+          statusEl.innerHTML = `<span class="ok">完成</span> · ${elapsed} ms · ${body.finishReason}`;
+          const u = body.usage;
+          usageEl.innerHTML =
+            `输入 <b>${u.promptTokens}</b> tokens · 输出 <b>${u.completionTokens}</b> tokens` +
+            ` · 合计 <b>${u.totalTokens}</b> · 消耗积分 <b>${u.credits}</b>`;
+        } catch (err) {
+          statusEl.innerHTML = `<span class="err">请求失败：${err.message}</span>`;
+        } finally {
+          sendBtn.disabled = false;
+        }
+      }
+
+      sendBtn.addEventListener("click", send);
+      $("prompt").addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") send();
+      });
+      loadModels();
+    </script>
+  </body>
+</html>

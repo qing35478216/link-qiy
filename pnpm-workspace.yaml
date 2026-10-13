@@ -2,8 +2,12 @@ packages:
   - "packages/*"
   - "apps/*"
 allowBuilds:
-  '@scarf/scarf': set this to true or false
-  esbuild: set this to true or false
-  msw: set this to true or false
-  unrs-resolver: set this to true or false
-  vue-demi: set this to true or false
+  # 说明：本块原为占位符文本 `set this to true or false`（非布尔值），pnpm 9.15
+  # 无法把它解析为布尔许可，导致依赖构建许可策略实际不生效。
+  # T-010 修正为显式布尔值：esbuild / msw / unrs-resolver 需要执行安装脚本；
+  # @scarf/scarf（纯遥测）与 vue-demi 不需要执行。
+  '@scarf/scarf': false
+  esbuild: true
+  msw: true
+  unrs-resolver: true
+  vue-demi: true

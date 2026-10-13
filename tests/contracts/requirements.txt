@@ -1,0 +1,7 @@
+# LinkAI 契约测试框架依赖（全部 pin 版本，许可证见 .ai-team/tickets/T-010.md 依赖清单）
+schemathesis==4.31.0        # MIT   —— 提供者侧属性测试（服务实现 vs 契约）
+openapi-spec-validator==0.7.2  # MIT   —— 消费者侧：OpenAPI 规范合法性校验
+pytest==9.1.1               # MIT   —— 测试运行器
+PyYAML==6.0.3               # MIT   —— 契约文件解析
+requests==2.34.2            # Apache-2.0 —— 提供者侧真实 HTTP 流量
+urllib3==2.8.0              # MIT   —— requests 传递依赖，显式 pin 防漂移

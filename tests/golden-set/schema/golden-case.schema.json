@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://link-ai.tech/schemas/golden-case.schema.json",
+  "title": "LinkAI 黄金评测集用例",
+  "description": "AI 效果类改动（RAG / 提示词 / 模型路由 / 知识库召回）必须跑此评测集。分数下跌超阈值即卡 MR（docs/03 第六部分「效果回归」）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "framework", "scenario", "input", "expect"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z]+-[0-9]{3}$",
+      "description": "用例 ID。命理=metaphysics，客服=support，文档问答=docqa。编号三位、组内唯一。"
+    },
+    "framework": {
+      "type": "string",
+      "enum": ["metaphysics", "support", "docqa", "runtime"],
+      "description": "所属框架。docs/03 定义八大框架；黄金集按效果类框架分组建。"
+    },
+    "scenario": {
+      "type": "string",
+      "description": "场景名，用于分组统计与人工回溯（如「首次咨询-压测语气边界」）。"
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["smoke", "regression", "adversarial"],
+      "default": "regression",
+      "description": "smoke=每次提交跑（快）；regression=每日/里程碑跑（全量）；adversarial=对抗用例（防越狱/防幻觉）。"
+    },
+    "input": {
+      "type": "object",
+      "description": "送进智能体的输入。messages 为对话历史（可空），query 为用户本轮输入。",
+      "additionalProperties": false,
+      "properties": {
+        "messages": {
+          "type": "array",
+          "description": "历史对话。role ∈ system/user/assistant。",
+          "items": {
+            "type": "object",
+            "required": ["role", "content"],
+            "properties": {
+              "role": { "type": "string", "enum": ["system", "user", "assistant"] },
+              "content": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "query": { "type": "string", "minLength": 1 },
+        "variables": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "提示词变量值（契约 AppConfig.modelPrompt.variables）。"
+        },
+        "knowledge": {
+          "type": "array",
+          "description": "知识库检索命中的片段（模拟 RAG 召回结果）。评测「给定这些片段，模型是否忠于片段」。",
+          "items": {
+            "type": "object",
+            "required": ["id", "content"],
+            "properties": {
+              "id": { "type": "string" },
+              "content": { "type": "string", "minLength": 1 },
+              "score": { "type": "number", "description": "召回相似度（0~1）" }
+            }
+          }
+        }
+      }
+    },
+    "expect": {
+      "type": "object",
+      "description": "期望。评分器据此打分。至少要有一类可判定的期望（确定性断言或 rubric）。",
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["mustInclude"] },
+        { "required": ["mustMatchRegex"] },
+        { "required": ["ranking"] },
+        { "required": ["rubric"] }
+      ],
+      "properties": {
+        "mustInclude": {
+          "type": "array",
+          "description": "输出必须包含的要点（子串匹配，忽略空白与大小写）。",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "mustNotInclude": {
+          "type": "array",
+          "description": "输出禁止出现的内容（防幻觉/防承诺/防泄漏 system prompt）。",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "mustMatchRegex": {
+          "type": "array",
+          "description": "输出必须匹配的正则（结构化场景，如工单号、JSON 结构）。",
+          "items": { "type": "string" }
+        },
+        "ranking": {
+          "type": "array",
+          "description": "多候选排序用例。列出正确顺序的片段 id，评分器算 nDCG / MRR。",
+          "items": { "type": "string" }
+        },
+        "maxChars": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "输出长度上限（超长即扣分，防啰嗦）。"
+        },
+        "rubric": {
+          "type": "string",
+          "description": "人工/模型评分用的评分标准描述（1-5 分锚点）。有 rubric 的用例走LLM-as-judge。"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "自由元数据（期望的租户、期望的模型路由、来源工单等）。",
+          "additionalProperties": true
+        }
+      }
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "临时禁用某条用例（不删文件，保留可追溯性）。禁用条目必须在门禁报告里列出。"
+    },
+    "addedIn": {
+      "type": "string",
+      "description": "引入用例的工单号（如 T-010）。便于回溯「这条为什么存在」。"
+    }
+  }
+}
