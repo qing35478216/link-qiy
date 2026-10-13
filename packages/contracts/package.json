@@ -1,0 +1,16 @@
+{
+  "name": "@linkai/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LinkAI API 契约单一事实源（契约先行流程的落点）",
+  "scripts": {
+    "lint": "spectral lint --ruleset .spectral.yaml \"openapi/**/*.yaml\"",
+    "lint:strict": "spectral lint --ruleset .spectral.yaml --fail-severity=warn \"openapi/**/*.yaml\"",
+    "diff": "oasdiff changelog base.yaml revision.yaml",
+    "generate": "node scripts/generate.mjs"
+  },
+  "devDependencies": {
+    "@stoplight/spectral-cli": "^6.15.0",
+    "@stoplight/spectral-rulesets": "^1.21.3"
+  }
+}
