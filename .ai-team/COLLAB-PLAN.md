@@ -257,6 +257,68 @@ qa-reviewer 面临「实装六维矩阵 vs 显式抛错」二选一，选择了*
 
 **这个选择正确**：门禁入口看起来能跑实际不检查，比没有更危险。已合并 main。
 
+**主理人更正**：本节曾记「薄壳已合并 main」——**该文件从未存在**（`git log --all --diff-filter=A -- '*test_gate*'` 为空）。实际只有 `tests/gate/gate_chain.py`。记忆不可靠，一切以 git 为准。
+
+## 四点六、跨服务身份头越权（T-008 · 契约级根因 · 22:40）
+
+### 缺陷
+
+网关**只注入不剥离**客户端传入的身份头。实测客户端携带 `X-User-Id: victim-9999` 可原样穿透到下游；而网关注入的是 `X-Subject-Id`，与下游读取的 `X-User-Id` **不是同一个名字**——真实身份永远传不过去，伪造的反而畅通。
+
+### 根因（主理人独立核实，非实现者自述）
+
+**契约层从未定义这三个头。** 全量搜索 `packages/contracts/`：
+
+| 头 | 契约定义 | 下游读取（`services/model-proxy/.../api/auth.py` L25-27） |
+|---|---|---|
+| `X-Tenant-Id` | ✅ `schemas/common.yaml:25`（18 处 `$ref`） | ✅ `TENANT_HEADER` |
+| `X-User-Id` | ❌ **不存在** | ✅ `USER_HEADER` |
+| `X-Trace-Id` | ❌ **不存在** | ✅ `TRACE_HEADER` |
+| `X-Subject-Id` | ❌ 不存在 | 网关曾注入此名 |
+
+**两个团队各自约定、猜错了名字。** 这不是实现bug，是契约覆盖不足——`auth.py` L24 注释写「与 packages/contracts 的 X-Tenant-Id 一致」，仅对 tenant 成立。
+
+### 修复
+
+`05ac6f7`：转发前剥离全部身份头再注入；统一为 `X-User-Id`（跟随下游既有约定，改动面最小）；`X-Trace-Id` 一律重新生成。
+
+### 影响与处置
+
+- **Wave 2 派单约束**：T-004/T-006/T-007 的prompt 中写死三个头名，避免再次各自约定
+- **根治**：何约需把网关注入身份头清单写进契约 → **T-016 P0 项**
+- **模式识别**：T-008、T-005、GAP-CONTRACT-004 是**第三张**指向 `packages/contracts` 覆盖不足的工单。契约冻结 v0.1 的覆盖审计有系统性遗漏，须写进 Phase 1 复盘
+
+### SSRF 双闸门决策（认可）
+
+保留Go + Python 两道闸门而非收敛为单一来源——收敛会让Python 出网全经网关转发，给**对话热路径凭空加一跳延迟**，与 docs/03 性能预算冲突。防漂移靠网段表镜像 + 测试锁定（已修`198.18.0.0/15` →误写 `/19`）。
+
+## 四点七、主理人失职更正（重要教训 · 22:45）
+
+channel-engineer 提交**四处事实更正**，我独立核实后**全部属实**。我此前把它的自述当事实转述，犯了两个错：
+
+| 我此前转述 | 实际 |
+|---|---|
+| 令牌桶 map 无锁并发读写 | **错**。`tokenbucket.go` L35 有 `sync.Mutex`。真实根因是 **`SetLimit/SetBurst` 每次调用补满令牌**导致桶无限续命（L22-24 注释原话） |
+| origin 回显未trim 致 panic | **不存在** |
+| SSRF IPv6 `To4()` nil panic | **不存在**，已用 `netip.Addr.As4()` |
+| JWT 密钥截断 32 字节 | **不存在**。`config.go` L142 已有 32 字节下界校验 |
+| 「没在 diff 里看到选型表」 | **错**。`docs/选型对比.md` 207 行存在，我误把 git `core.quotepath` 转义当缺失 |
+
+### 教训（已落为纪律）
+
+**转述未独立核实的细节时必须标明「据 X 报告，未核实」，或先读文件再写。**我已就此向channel-engineer 与t008-gatekeeper 发出更正——后者正在按错误清单评审，不更正会浪费其资源并分散对真缺陷的注意力。
+
+## 四点八、T-002 架构守卫复跑验证（22:45）
+
+主理人独立复跑 `tests/architecture/`：**45 passed**。
+
+首次复跑出现 2 个 ERROR，根因是**并发 pytest 抢占 `/tmp/pytest-of-*`**（多个 agent 同时跑测试）——非代码缺陷。加 `--basetemp` 独立临时目录后全绿。
+
+**这与 qa-reviewer 报的内存告警同源**：本机资源有限，多 agent 并发跑测试会互相干扰。已在环境备忘中记录。
+
+变异测试无污染：`domain/users.py` 与 `services/user_service.py` 均无残留违规 import。
+
+
 
 
 
