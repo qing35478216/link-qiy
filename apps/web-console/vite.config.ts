@@ -34,10 +34,11 @@ export default defineConfig({
       '@linkai/sdk-ts/msw/service': fileURLToPath(
         new URL('../../packages/sdk-ts/src/service.msw.ts', import.meta.url),
       ),
-      '@linkai/ui': fileURLToPath(new URL('../../packages/ui/src/index.ts', import.meta.url)),
+      // 注意：Vite 字符串 alias 为前缀匹配，具体路径必须排在泛路径之前
       '@linkai/ui/tokens.css': fileURLToPath(
         new URL('../../packages/ui/src/styles/tokens.css', import.meta.url),
       ),
+      '@linkai/ui': fileURLToPath(new URL('../../packages/ui/src/index.ts', import.meta.url)),
     },
   },
   build: {

@@ -6,7 +6,7 @@
 import { reactive, ref } from 'vue';
 import type { AppType } from '@/types';
 
-const props = defineProps<{
+defineProps<{
   modelValue: boolean;
 }>();
 

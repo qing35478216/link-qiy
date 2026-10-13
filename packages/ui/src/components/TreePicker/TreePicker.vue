@@ -12,7 +12,7 @@ export interface TreePickerNode {
   disabled?: boolean;
 }
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     modelValue: string[];
     data: TreePickerNode[];

@@ -7,6 +7,11 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { Ref } from 'vue';
 import type { App, AppConfig } from '@/types';
+
+/** 深拷贝：契约数据均为 JSON 结构；structuredClone 无法处理 reactive proxy（DataCloneError） */
+function deepClone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
 import {
   fetchAppConfig,
   saveAppConfig,
@@ -32,9 +37,9 @@ export const useConfigStore = defineStore('app-config', () => {
     try {
       const config = await fetchAppConfig(appId);
       app.value = appInfo;
-      savedApp.value = structuredClone(appInfo);
-      draft.value = structuredClone(config);
-      saved.value = structuredClone(config);
+      savedApp.value = deepClone(appInfo);
+      draft.value = deepClone(config);
+      saved.value = deepClone(config);
     } finally {
       loading.value = false;
     }
@@ -61,8 +66,8 @@ export const useConfigStore = defineStore('app-config', () => {
         ...(app.value.iconUrl ? { iconUrl: app.value.iconUrl } : {}),
       });
       const version = await saveAppConfig(app.value.id, draft.value);
-      saved.value = structuredClone(draft.value);
-      savedApp.value = structuredClone(app.value);
+      saved.value = deepClone(draft.value);
+      savedApp.value = deepClone(app.value);
       return version;
     } finally {
       saving.value = false;
@@ -70,8 +75,8 @@ export const useConfigStore = defineStore('app-config', () => {
   }
 
   function reset(): void {
-    if (saved.value) draft.value = structuredClone(saved.value);
-    if (savedApp.value) app.value = structuredClone(savedApp.value);
+    if (saved.value) draft.value = deepClone(saved.value);
+    if (savedApp.value) app.value = deepClone(savedApp.value);
   }
 
   function clear(): void {

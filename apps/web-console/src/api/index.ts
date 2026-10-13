@@ -18,6 +18,8 @@ export const serviceAxios: AxiosInstance = axios.create({
 
 if (import.meta.env.MODE === 'test') {
   serviceAxios.defaults.adapter = 'fetch';
+  serviceAxios.defaults.baseURL =
+    import.meta.env.VITE_SERVICE_API_BASE_URL || 'http://localhost:5173';
 }
 
 export const serviceAPI = getLinkAIServiceAPIOpenAI(serviceAxios);

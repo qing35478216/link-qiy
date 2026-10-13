@@ -1,6 +1,6 @@
 /* 全局样式：Design Token（packages/ui）+ Element Plus 完整引入 + 基础重置 */
-import '@linkai/ui/tokens.css';
-import 'element-plus/dist/index.css';
+@import '@linkai/ui/tokens.css';
+@import 'element-plus/dist/index.css';
 
 * {
   box-sizing: border-box;

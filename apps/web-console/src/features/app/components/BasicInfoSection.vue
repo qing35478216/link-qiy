@@ -37,6 +37,7 @@ async function onDelete(): Promise<void> {
       <el-form-item label="应用名称">
         <el-input
           :model-value="app?.name"
+          placeholder="请输入应用名称"
           maxlength="64"
           @update:model-value="(value: string) => configStore.updateAppInfo({ name: value })"
         />

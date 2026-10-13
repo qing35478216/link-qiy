@@ -5,7 +5,7 @@
  * 任一分区改动即整页脏标记，保存 = 整页原子保存；未保存离开弹拦截。
  */
 import { computed, ref, watch } from 'vue';
-import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
+import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useQuery } from '@tanstack/vue-query';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { LkAppPage, LkDebugDrawer, LkChatWindow } from '@linkai/ui';
@@ -18,7 +18,6 @@ import ModelPromptSection from '@/features/app/components/ModelPromptSection.vue
 import PlaceholderSections from '@/features/app/components/PlaceholderSections.vue';
 
 const route = useRoute();
-const router = useRouter();
 const configStore = useConfigStore();
 
 const appId = computed(() => String(route.params.appId ?? ''));

@@ -13,9 +13,10 @@ export const consoleAxios: AxiosInstance = axios.create({
   timeout: 30000,
 });
 
-// 测试环境（MSW node server）走 fetch adapter，浏览器开发/生产走默认 xhr
+// 测试环境（MSW node server）走 fetch adapter；Node 的 fetch 不支持相对 URL，需绝对基址
 if (import.meta.env.MODE === 'test') {
   consoleAxios.defaults.adapter = 'fetch';
+  consoleAxios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5173';
 }
 
 const TENANT_HEADER = 'x-tenant-id';

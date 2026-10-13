@@ -6,9 +6,10 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
 import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query';
+import { LkDebugDrawer } from '@linkai/ui';
 import AppConfigPage from '@/features/app/pages/AppConfigPage.vue';
 
-function mountConfigPage() {
+async function mountConfigPage() {
   const pinia = createPinia();
   setActivePinia(pinia);
   const router = createRouter({
@@ -21,8 +22,8 @@ function mountConfigPage() {
       },
     ],
   });
-  void router.push('/console/apps/app-qingyi/config');
-  void router.isReady();
+  await router.push('/console/apps/app-qingyi/config');
+  await router.isReady();
   return mount(AppConfigPage, {
     global: {
       plugins: [pinia, router, [VueQueryPlugin, { queryClient: new QueryClient() }]],
@@ -36,7 +37,7 @@ describe('AppConfigPage', () => {
   });
 
   it('加载配置七件套：基础/分享/模型/占位分区齐全', async () => {
-    const wrapper = mountConfigPage();
+    const wrapper = await mountConfigPage();
     await flushPromises();
     await flushPromises();
     await flushPromises();
@@ -53,38 +54,45 @@ describe('AppConfigPage', () => {
   });
 
   it('任一分区改动即整页脏标记，保存后清除', async () => {
-    const wrapper = mountConfigPage();
+    const wrapper = await mountConfigPage();
     await flushPromises();
     await flushPromises();
     await flushPromises();
 
     const saveBtn = () =>
       wrapper.findAll('button').find((btn) => btn.text() === '保存')!;
-    expect(saveBtn().attributes('disabled')).toBeDefined();
+    // Element Plus 2.14 以 aria-disabled 表达禁用态
+    expect(saveBtn().attributes('aria-disabled')).toBe('true');
 
     // 改动「应用设定」提示词
     const textarea = wrapper.find('textarea');
     await textarea.setValue('你是精通六爻的推演师');
     await flushPromises();
 
-    expect(saveBtn().attributes('disabled')).toBeUndefined();
+    expect(saveBtn().attributes('aria-disabled')).toBe('false');
     await saveBtn().trigger('click');
     await flushPromises();
     await flushPromises();
     await flushPromises();
 
-    expect(saveBtn().attributes('disabled')).toBeDefined();
-    expect(wrapper.text()).toContain('已保存');
+    expect(saveBtn().attributes('aria-disabled')).toBe('true');
+    // ElMessage  teleport 到 body
+    expect(document.body.textContent).toContain('已保存');
   });
 
   it('调试抽屉可打开', async () => {
-    const wrapper = mountConfigPage();
+    const wrapper = await mountConfigPage();
     await flushPromises();
     await flushPromises();
 
+    // 页面级契约：点击「调试」打开抽屉（el-drawer 在 jsdom 的 teleport 渲染由
+    // packages/ui 的 DebugDrawer 组件测试覆盖）
+    const drawer = wrapper.findComponent(LkDebugDrawer);
+    expect(drawer.props('modelValue')).toBe(false);
+
     await wrapper.findAll('button').find((btn) => btn.text() === '调试')!.trigger('click');
     await flushPromises();
-    expect(document.body.textContent).toContain('对话测试');
+    expect(drawer.props('modelValue')).toBe(true);
     wrapper.unmount();
   });
 });

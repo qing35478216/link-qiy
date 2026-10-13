@@ -5,7 +5,7 @@
  */
 import { ref } from 'vue';
 import { ElMessage, ElUpload } from 'element-plus';
-import type { UploadFile, UploadFiles, UploadInstance } from 'element-plus';
+import type { UploadFile, UploadInstance } from 'element-plus';
 
 export interface UploadFileItem {
   name: string;
@@ -53,7 +53,7 @@ function onExceed(): void {
 }
 
 /** el-upload 的 change 回调：第一个参数是原始 File（EP 内部已挂 uid） */
-function onChange(file: UploadFile, _files: UploadFiles): void {
+function onChange(file: UploadFile): void {
   const invalid = validate(file);
   if (invalid) {
     uploadRef.value?.handleRemove(file);
