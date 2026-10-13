@@ -62,14 +62,25 @@ def _imported_roots(path: Path) -> set[str]:
     return roots
 
 
-def _full_imported_modules(path: Path) -> set[str]:
-    """返回该文件 import 的完整模块名（from a.b.c import x → "a.b.c"）。"""
+def _absolute_from_imports(path: Path) -> list[str]:
+    """返回文件中所有绝对路径的 `from X import ...` 的模块名 X（不含相对导入）。
+
+    统一在这里做一次 None 收窄，调用方拿到的就是干净的 str 列表。
+    """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    modules: set[str] = set()
+    return [
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level
+    ]
+
+
+def _referenced_modules(path: Path) -> set[str]:
+    """该文件引用到的所有完整模块名（from a.b.c import x → "a.b.c"；含 import a.b）。"""
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    modules = set(_absolute_from_imports(path))
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
-            modules.add(node.module)
-        elif isinstance(node, ast.Import):
+        if isinstance(node, ast.Import):
             modules.update(alias.name for alias in node.names)
     return modules
 
@@ -77,7 +88,8 @@ def _full_imported_modules(path: Path) -> set[str]:
 def _relative_imports(path: Path) -> bool:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     return any(
-        isinstance(node, ast.ImportFrom) and node.level and node.level > 0 for node in ast.walk(tree)
+        isinstance(node, ast.ImportFrom) and node.level and node.level > 0
+        for node in ast.walk(tree)
     )
 
 
@@ -85,13 +97,6 @@ def _relative_imports(path: Path) -> bool:
 def test_each_layer_has_sources(layer: str) -> None:
     """前置断言：扫描器本身没跑空（空目录会让下面的守卫假通过）。"""
     assert _module_files(layer), f"{layer} 层没有任何源文件，守卫会假通过"
-
-
-@pytest.mark.parametrize("path", _module_files("domain"), ids=lambda p: p.name)
-def test_domain_has_no_framework_import(path: Path) -> None:
-    """验收标准 3：domain 层零框架 import。"""
-    offenders = sorted(_imported_roots(path) & FORBIDDEN_IN_DOMAIN)
-    assert not offenders, f"{path.name} 引入了框架依赖 {offenders}（铁律 2：domain 必须是纯 Python）"
 
 
 @pytest.mark.parametrize("path", _module_files("domain"), ids=lambda p: p.name)
@@ -110,13 +115,13 @@ def test_domain_only_imports_stdlib_or_own_layer(path: Path) -> None:
 @pytest.mark.parametrize("path", _module_files("domain"), ids=lambda p: p.name)
 def test_domain_does_not_import_outer_layers(path: Path) -> None:
     """domain 不得依赖 api/services/infra（依赖只准向内）。"""
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    offenders: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("linkai_platform."):
-            parts = node.module.split(".")  # type: ignore[union-attr]
-            if len(parts) > 1 and parts[1] in {"api", "services", "infra"}:
-                offenders.add(node.module)  # type: ignore[union-attr]
+    offenders = {
+        module
+        for module in _absolute_from_imports(path)
+        if module.startswith("linkai_platform.")
+        and module.split(".")[1:2]
+        and module.split(".")[1] in {"api", "services", "infra"}
+    }
     assert not offenders, f"{path.name} 反向依赖外层 {sorted(offenders)}（依赖只准向内）"
 
 
@@ -124,10 +129,9 @@ def test_domain_does_not_import_outer_layers(path: Path) -> None:
 def test_services_does_not_import_api(path: Path) -> None:
     """services 是应用层，不得反向依赖接口层。"""
     offenders = {
-        node.module
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"), filename=str(path)))
-        if isinstance(node, ast.ImportFrom)
-        and (node.module or "").startswith("linkai_platform.api")
+        module
+        for module in _absolute_from_imports(path)
+        if module.startswith("linkai_platform.api")
     }
     assert not offenders, f"{path.name} 反向依赖 api 层 {sorted(offenders)}"
 
@@ -145,7 +149,7 @@ def test_orm_models_only_defined_in_infra(layer: str) -> None:
     offenders = [
         p.name
         for p in _module_files(layer)
-        if "linkai_platform.infra.models" in _full_imported_modules(p)
+        if "linkai_platform.infra.models" in _referenced_modules(p)
     ]
     assert not offenders, f"{layer} 层直接引用了 ORM 模型：{offenders}（ORM 模型只准在 infra）"
 
@@ -154,7 +158,7 @@ def test_orm_models_only_defined_in_infra(layer: str) -> None:
 def test_domain_has_no_framework_import(path: Path) -> None:
     """验收标准 3：domain 层零框架 import（含 sqlalchemy，不给组装根开口子）。"""
     offenders = sorted(_imported_roots(path) & FORBIDDEN_IN_DOMAIN)
-    assert not offenders, f"{path.name} 引入了框架依赖 {offenders}（铁律 2：domain 必须是纯 Python）"
+    assert not offenders, f"{path.name} 引入了框架依赖 {offenders}（铁律 2：domain 须纯 Python）"
 
 
 def test_domain_uses_relative_or_intra_layer_imports_only() -> None:
