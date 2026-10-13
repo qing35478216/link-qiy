@@ -38,14 +38,14 @@ export default function AgentPage() {
                 <ul className="mt-5 space-y-2.5">
                   {s.bullets.map((b) => (
                     <li key={b} className="flex items-center gap-2 text-sm">
-                      <Icon name="check" className="h-4 w-4 shrink-0 text-brand-500" />
+                      <Icon name="check" className="h-4 w-4 shrink-0 text-brand-accent" />
                       {b}
                     </li>
                   ))}
                 </ul>
               </div>
               <div className="card flex h-48 items-center justify-center sm:h-64" aria-hidden>
-                <Icon name="sparkles" className="h-12 w-12 text-brand-500/40" />
+                <Icon name="sparkles" className="text-brand-accent/40 h-12 w-12" />
               </div>
             </div>
           ))}

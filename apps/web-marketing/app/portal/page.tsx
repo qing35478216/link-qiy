@@ -15,12 +15,12 @@ export default function PortalPage() {
       <section className="relative overflow-hidden">
         <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(600px 300px at 50% -10%, rgba(46,107,230,0.18), transparent 70%)' }} />
         <div className="container-site relative flex flex-col items-center py-20 text-center sm:py-24">
-          <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-brand-500" style={{ borderColor: 'var(--border)' }}>
+          <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-brand-accent" style={{ borderColor: 'var(--border)' }}>
             {hero.badge}
           </span>
           <h1 className="mt-5 max-w-3xl text-3xl font-bold leading-tight sm:text-5xl">
             {hero.title}
-            <span className="text-brand-500">{hero.titleHighlight}</span>
+            <span className="text-brand-accent">{hero.titleHighlight}</span>
           </h1>
           <p className="text-secondary mt-5 max-w-2xl leading-relaxed sm:text-lg">{hero.subtitle}</p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">

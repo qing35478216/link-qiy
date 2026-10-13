@@ -12,7 +12,7 @@ export function AboutSection() {
           </p>
         ))}
         <p className="mt-8 text-sm font-medium">
-          愿景：<span className="text-brand-500">{about.vision}</span>
+          愿景：<span className="text-brand-accent">{about.vision}</span>
         </p>
         <p className="text-secondary mt-2 text-xs">{about.teamNote}</p>
       </div>

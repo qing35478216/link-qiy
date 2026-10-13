@@ -60,8 +60,17 @@
 1. `app/price/page.tsx` 改为 `async` 组件，`generateStaticParams`/构建期 fetch 定价接口（SSG 时数据内联进 HTML，不影响纯静态输出）；
 2. JSON 降级为兜底默认值；组件结构零改动（Props 即 `PricingContent`）。
 
-## 验证方式
+## 验证方式（T-009 交付实测）
 
-- `pnpm build`（output: export）通过，`out/` 为纯静态产物；
-- `pnpm lint`（eslint-config-next）与 `pnpm typecheck`（tsc --noEmit）全过；
-- Lighthouse 见工单交付说明（本环境无 Chrome，用 bundle 体积 + 静态产物分析替代，报告于提交说明）。
+- `next build`（output: export）通过：11 条路由全部 `○ (Static)`，`out/` 1.2MB 纯静态产物（含 sitemap.xml / robots.txt / 404.html）；
+- `next lint`（eslint-config-next）与 `tsc --noEmit` 全过；
+- **Lighthouse：首页 / 定价页 均 100 / 100 / 100 / 100**（Performance / Accessibility / Best Practices / SEO，headless Chrome 实测，见 commit dcc7be0）；
+- Bundle 体积：First Load JS 共享 87.4 kB（框架 53.6 + 运行时 31.9 + 其它 1.9），首页整页 First Load 105 kB；CSS 单文件 15.6 kB（gzip 4.2 kB）；无外部图片/字体请求（图标全部内联 SVG），LCP 元素为纯文本；
+- CMS 模块化验证：仅改 `content/home.json` 一行副标题 → 重建 → `out/index.html` 出现该文案，`components/` `app/` `lib/` 零 diff（用例已执行后还原）；
+- 响应式：390px / 1440px 双断截图过检；暗色模式 `prefers-color-scheme` + 手动切换均验证（截图见交付说明）。
+
+## 工程环境备注（非代码问题）
+
+- 本机 WorkBuddy FS broker 偶发对 `next build` 的 `.next` 并发 mkdir / trace 收集报 EEXIST / ENOENT（重试即过）；CI 环境不受影响。
+- 本地预览 `out/` 用 `node scripts/serve-out.mjs 8899`（预压缩，对齐 CDN 行为）。
+

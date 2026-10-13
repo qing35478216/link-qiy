@@ -19,7 +19,7 @@ export function OpenSourceSection() {
             className="card group p-6 transition-shadow hover:shadow-lg"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold group-hover:text-brand-500">{item.name}</h3>
+              <h3 className="text-lg font-semibold group-hover:text-brand-accent">{item.name}</h3>
               <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs" style={{ borderColor: 'var(--border)' }}>
                 <Icon name="star" className="h-3.5 w-3.5 text-amber-500" />
                 {item.stars}

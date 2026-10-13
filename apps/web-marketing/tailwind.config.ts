@@ -3,6 +3,10 @@ import type { Config } from 'tailwindcss';
 const config: Config = {
   darkMode: 'class',
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
+  // CTA 按钮的变体类由 content JSON 的 variant 字段驱动（primary/secondary/text）。
+  // Tailwind 只产出扫描到的类名，一旦类名从源码中消失按钮就会静默失去样式，
+  // 因此显式 safelist 兜底。改用完整字面量而非模板拼接，从源头避免该问题。
+  safelist: ['btn-primary', 'btn-secondary', 'btn-text'],
   theme: {
     extend: {
       colors: {
