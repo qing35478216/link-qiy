@@ -56,3 +56,31 @@ npm run gate   # = lint（spectral）+ diff（oasdiff），两者零 error 才�
 **已知坑（写在这里防止复踩）**：`oasdiff breaking` 默认退出码恒为 0
 （`--fail-on` 默认 NONE），直接拿它当门禁会「检出问题却不拦截」。
 脚本里已显式加 `--fail-on ERR`。
+
+## 代码生成（SDK）
+
+选型见 `ADOPTED-TOOLS.md`，执行入口：
+
+```bash
+npm run generate          # 全量：sdk-ts + sdk-py
+npm run generate -- ts    # 只生成 sdk-ts（orval）
+npm run generate -- py    # 只生成 sdk-py（openapi-python-client）
+```
+
+| 产物 | 工具 | 输出 |
+|------|------|------|
+| sdk-ts | orval 8.x | `../sdk-ts/src/{console,service}.ts` + `.msw.ts` + models |
+| sdk-py | openapi-python-client | `../sdk-py/src/` |
+
+**两个版本兼容坑（都已修，别改回去）**：
+
+1. **orval v8 改了 mock 配置格式** —— 必须写 `mock: { generators: [{ type: 'msw' }] }`；
+   沿用 v7 的 `mock: { type: 'msw' }` 会直接抛
+   `"mock.generators must be an array of generator entries"`。
+2. **orval v8 默认禁止外部 `$ref`** —— 契约跨文件引用 `../schemas/common.yaml`
+   时需在 `input.parserOptions.externalRefs.allow` 显式放行，否则报
+   `"External $ref targets are not allowed by default"`。
+3. **openapi-python-client 不支持远程引用** —— 即使上面放行了，它仍会报
+   `"Remote references ... are not supported yet"` 并**静默跳过**引用了外部模型的端点
+   （实测丢掉 `GET /quota/summary`、`POST /apps/{appId}/versions` 等）。
+   所以 `generate.mjs` 里 py job 先跑 `redocly bundle` 再生成。

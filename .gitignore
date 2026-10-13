@@ -22,6 +22,9 @@ out/
 .output/
 *.tsbuildinfo
 
+# 契约 bundle 中间产物（scripts/generate.sh 每次重建）
+packages/contracts/generated/
+
 # Test / coverage
 coverage/
 htmlcov/
@@ -63,3 +66,6 @@ wt-T-*
 
 # WorkBuddy internal data
 .workbuddy/
+
+# task-runner 运行时进程表
+.ai-team/runtime/
