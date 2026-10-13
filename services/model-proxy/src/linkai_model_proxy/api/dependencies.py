@@ -29,19 +29,24 @@ from linkai_model_proxy.services.gateway import ModelGatewayService
 from linkai_model_proxy.services.playground import PlaygroundService
 
 #: 出网白名单：默认覆盖 5 家内置厂商的 API 域名。
-#: 租户自定义模型需把base_url 主机加进配置（或部署时设 LINKAI_SSRF_ALLOWED_HOSTS）。
+#: 租户自定义模型需把 base_url 主机加进配置（或部署时设 LINKAI_SSRF_ALLOWED_HOSTS）。
+#:
+#: 注意：厂商域名会随其云平台调整（如通义国际版/ 智谱新域名），因此这里同时
+#: 保留若干"同平台泛域名"条目兜底。`*` 只匹配子域、不匹配裸域（见 ssrf.py），
+#: 故裸域需单独列出。T-005 交付时本表实际用到的是前 5 条。
 DEFAULT_ALLOWED_HOSTS: tuple[str, ...] = (
+    # —— 5 家内置厂商（当前实际使用）——
     "api.openai.com",
     "api.anthropic.com",
     "api.deepseek.com",
-    "dashscope.aliyuncs.com",
-    "dashscope-intl.aliyuncs.com",
-    "open.bigmodel.cn",
+    "dashscope.aliyuncs.com",  # 通义千问（国内）
+    "open.bigmodel.cn",  # 智谱 GLM
+    # —— 泛域名兜底（厂商换域名时不至于立刻断线；引入前需人工核对）——
+    "dashscope-intl.aliyuncs.com",  # 通义千问（国际）
     "*.bigmodel.cn",
-    "api.moonshot.cn",
-    "open.bigmodel.cn",
-    "api.lkeap.cloud.baidu.com",
-    "api.siliconflow.cn",
+    "api.moonshot.cn",  # Kimi（Phase 1 若接入需先确认 OpenAI 兼容性）
+    "api.lkeap.cloud.baidu.com",  # 文心（Phase 1）
+    "api.siliconflow.cn",  # 硅基流动（聚合类，Phase 1 评估）
 )
 
 

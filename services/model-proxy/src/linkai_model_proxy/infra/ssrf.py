@@ -40,7 +40,7 @@ _BLOCKED_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
     ipaddress.ip_network("192.168.0.0/16"),
     ipaddress.ip_network("169.254.0.0/16"),
     ipaddress.ip_network("0.0.0.0/8"),
-    ipaddress.ip_network("100.64.0.0/10"),  # CGNAT
+    ipaddress.ip_network("100.64.0.0/10"),  # CGNAT（含阿里云元数据 100.100.100.200）
     ipaddress.ip_network("192.0.0.0/24"),
     ipaddress.ip_network("198.18.0.0/15"),  # 基准测试网
     ipaddress.ip_network("224.0.0.0/4"),
@@ -49,6 +49,46 @@ _BLOCKED_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = (
     ipaddress.ip_network("fc00::/7"),  # ULA
     ipaddress.ip_network("fe80::/10"),  # 链路本地
 )
+
+# IPv6 转换地址段——字面是公网 IPv6，但内嵌 IPv4，是 SSRF 的经典绕过手法。
+#
+# 为什么必须显式列出：Python `ipaddress` 的 `is_private` / `is_reserved`
+# 在不同版本对这几段的判定**不一致且会变**（实测 3.12 把 NAT64 判 reserved、
+# 6to4/Teredo 判 private，靠的是 IANA 特殊用途登记表的隐式行为，不是显式规则）。
+# 依赖它= 把安全边界押在标准库实现细节上，一旦版本升级判定变化即静默失效。
+# 因此这里显式拦截，并把内嵌 IPv4 抽出来按 IPv4 规则复检——
+# 这样"6to4 内嵌 127.0.0.1"这类构造无论标准库怎么变都会被拦。
+# 全部为 IPv6（用IPv6Network 显式构造，避免 str 推导出的类型歧义）
+_V6_TRANSITION_NETWORKS: tuple[ipaddress.IPv6Network, ...] = (
+    ipaddress.IPv6Network("2002::/16"),  # 6to4：第 3-6 字节即内嵌 IPv4
+    ipaddress.IPv6Network("64:ff9b::/96"),  # NAT64 well-known prefix：末 4 字节即内嵌 IPv4
+    ipaddress.IPv6Network("2001::/32"),  # Teredo：末 4 字节为混淆后的 IPv4
+    ipaddress.IPv6Network("2001:2::/48"),  # 基准测试网（Benchmarking）
+    ipaddress.IPv6Network("100::/64"),  # discard-only
+)
+
+
+def _embedded_ipv4(addr: ipaddress.IPv6Address) -> ipaddress.IPv4Address | None:
+    """从 IPv6 转换地址中抽出内嵌的 IPv4；非转换地址返回 None。
+
+    抽取规则按 RFC：
+    - 6to4 (`2002::/16`)：`2002:0a00:0001::1` → 第 3-6 字节 = `0a 00 00 01` = 10.0.0.1
+    - IPv4-mapped (`::ffff:a.b.c.d`)：末 4 字节
+    - NAT64 (`64:ff9b::/96`)：末 4 字节
+    - Teredo (`2001::/32`)：末 4 字节，且与 `0xffffffff` 逐位取反（混淆）
+    """
+    packed = addr.packed
+    if addr in ipaddress.ip_network("2002::/16"):
+        return ipaddress.IPv4Address(packed[2:6])
+    if addr in ipaddress.ip_network("64:ff9b::/96"):
+        return ipaddress.IPv4Address(packed[12:16])
+    if addr in ipaddress.ip_network("::ffff:0:0/96"):
+        return ipaddress.IPv4Address(packed[12:16])
+    if addr in ipaddress.ip_network("2001::/32"):
+        # Teredo 对客户端 IPv4 取反混淆
+        raw = packed[12:16]
+        return ipaddress.IPv4Address(bytes(b ^ 0xFF for b in raw))
+    return None
 
 
 class SsrfViolation(Exception):
@@ -132,14 +172,33 @@ class SsrfPolicy:
             if addr in net:
                 raise SsrfViolation(f"目标 {addr} 落在阻断网段 {net}")
 
+        if isinstance(addr, ipaddress.IPv6Address):
+            # IPv6 转换地址：字面公网、内嵌私网 IPv4 的绕过手法。
+            # 显式拦截，不依赖标准库 is_private 的版本相关行为。
+            for net in _V6_TRANSITION_NETWORKS:
+                if addr in net:
+                    raise SsrfViolation(f"目标 {addr} 是 IPv6 转换地址（{net}），禁止用于出网")
+            embedded = _embedded_ipv4(addr)
+            if embedded is not None:
+                # 内嵌 IPv4 也必须过 IPv4 规则——
+                # 例如构造出一个"看起来不像转换地址"但内嵌 127.0.0.1 的形态。
+                SsrfPolicy._validate_ip(embedded)
+
 
 def _host_allowed(host: str, allowed: frozenset[str]) -> bool:
-    """白名单匹配：支持精确主机与 `*.suffix` 形式。"""
+    """白名单匹配：支持精确主机与 `*.suffix` 形式。
+
+    `*.suffix` 只匹配**子域**，不匹配裸域本身（RFC 1034 通配符语义）。
+    即 `*.bigmodel.cn` 放行 `open.bigmodel.cn`，但不放行 `bigmodel.cn`——
+    若确实要放行裸域，需单独列出。这是最小权限取向：
+    写 `*.x.com` 的人通常只想放行子域，不应顺带获得裸域。
+    """
     lowered = host.lower()
     for entry in allowed:
         candidate = entry.lower()
         if candidate.startswith("*."):
-            if lowered == candidate[2:] or lowered.endswith(candidate[1:]):
+            # endswith('.suffix') 天然要求中间有点，故 'evilx.com' 不会被 '*.x.com' 匹配
+            if lowered.endswith(candidate[1:]):
                 return True
         elif lowered == candidate:
             return True

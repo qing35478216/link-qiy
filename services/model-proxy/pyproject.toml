@@ -51,6 +51,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # 测试里出现 assert / 假凭证字符串 / 随机数是正常用法
 "tests/**" = ["S105", "S106", "S311", "S101"]
+# SSRF 用例里 0.0.0.0 / 169.254.x 等是**被阻断的目标地址**，不是绑定地址（S104误报）
+"tests/unit/test_ssrf.py" = ["S104"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["linkai_model_proxy"]
