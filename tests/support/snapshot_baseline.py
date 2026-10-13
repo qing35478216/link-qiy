@@ -229,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
     drift: list[str] = []
 
-    # 1) 守卫数量缩水 —— 最强信号
+    # 1) 守卫数量变化
     b_count, c_count = baseline["guard_count"], current["guard_count"]
     if c_count < b_count:
         drift.append(
@@ -237,16 +237,18 @@ def main(argv: list[str] | None = None) -> int:
             "这通常是文件被覆盖/删除，不是「测试变简单」。"
         )
     elif c_count > b_count:
-        drift.append(f"守卫数量从 {b_count} 增加到 {c_count}（新守卫加入，正常）。")
+        # ADVISORY：新增守卫是正常演进，不该让门禁变红。
+        # 理由见main() 里的分级说明——常红的门禁等于没有门禁。
+        drift.append(f"[ADVISORY] 守卫数量从 {b_count} 增加到 {c_count}（新守卫加入，正常）")
 
     # 2) 单个守卫结果变化
     b_guards, c_guards = baseline["guards"], current["guards"]
     for name in sorted(set(b_guards) | set(c_guards)):
         bv, cv = b_guards.get(name), c_guards.get(name)
         if bv is None:
-            drift.append(f"新增守卫 {name}（基线中不存在）")
+            drift.append(f"[ADVISORY] 新增守卫 {name}（基线中不存在，正常）")
         elif cv is None:
-            drift.append(f"守卫消失：{name} —— 基线有 PASS={bv}，现在找不到了")
+            drift.append(f"守卫消失：{name} —— 基线有 {bv}，现在找不到了")
         elif bv != cv:
             drift.append(f"守卫 {name} 结果变化：{bv} → {cv}")
 
@@ -261,25 +263,50 @@ def main(argv: list[str] | None = None) -> int:
     # 4) 缺口增减（新增缺口正常，减少是修复）
     b_gaps, c_gaps = set(baseline["gaps"]), set(current["gaps"])
     for g in sorted(c_gaps - b_gaps):
-        drift.append(f"新增契约缺口 {g}")
+        drift.append(f"[ADVISORY] 新增契约缺口 {g}")
     for g in sorted(b_gaps - c_gaps):
         drift.append(f"契约缺口 {g} 已消失（若确为修复，应在工单留痕）")
+
+    # ── 分级：BLOCKING（红）/ ADVISORY（黄）─────────────────────────
+    # 关键设计（主理人指出「这个数字必然变化」的问题）：
+    #   **守卫变多、缺口变多都是正常演进，不该让门禁变红。**
+    #   若把它们也算 drift，则每次契约修复 / 新增守卫都会红一次——
+    #   而常红的门禁等于没有门禁，三个月后大家就学会忽略它。
+    #
+    #   只有「不该发生的事」才红：
+    #     · 守卫数量减少 → 文件被覆盖/删除
+    #     · 守卫结果变化 → 回归
+    #     · 文件内容变化 → 需确认（可能是覆盖，也可能是正常改动）
+    #     · 缺口消失 → 可能被静默删掉
+    #   「新增守卫 / 新增缺口 / 守卫数量增加」只提示不拦截。
+    blocking = [d for d in drift if not d.startswith("[ADVISORY]")]
+    advisory = [d for d in drift if d.startswith("[ADVISORY]")]
 
     if not drift:
         print("✓ 与基线一致，无漂移")
         print(f"  守卫 {c_count} 个 | 缺口 {len(c_gaps)} 条 | commit {current['commit']}")
         return 0
 
-    print("✗ 检测到漂移：", file=sys.stderr)
-    for d in drift:
-        print(f"  · {d}", file=sys.stderr)
-    print(
-        "\n处置：先判断这是「新增缺口」还是「文件丢了/被覆盖」。\n"
-        "  · 新增缺口 → 在工单登记并给依据\n"
-        "  · 文件丢失 → 从 git 恢复（git show <ref>:<path>），不要重写",
-        file=sys.stderr,
-    )
-    return 1
+    if advisory:
+        print("提示（不拦截，属正常演进）：")
+        for d in advisory:
+            print(f"  · {d[len('[ADVISORY] '):]}")
+        print("  处置：确认这是有意新增；确认后跑 --write 刷新基线。\n")
+
+    if blocking:
+        print("✗ 检测到需要处置的漂移：", file=sys.stderr)
+        for d in blocking:
+            print(f"  · {d}", file=sys.stderr)
+        print(
+            "\n处置：先判断这是「回归」还是「文件丢了/被覆盖」。\n"
+            "  · 回归 → 修实现\n"
+            "  · 文件丢失 → 从 git 恢复（git show <ref>:<path>），不要重写",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("✓ 无阻塞性漂移（仅正常演进），退出码 0")
+    return 0
 
 
 if __name__ == "__main__":
