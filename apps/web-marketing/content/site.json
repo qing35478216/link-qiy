@@ -1,0 +1,62 @@
+{
+  "brand": { "name": "LinkAI", "logoText": "Link·AI" },
+  "nav": [
+    {
+      "label": "产品",
+      "href": "/portal/",
+      "badge": "New",
+      "children": [
+        { "label": "智能体平台", "href": "/portal/", "description": "一站式搭建和管理 AI Agent 应用" },
+        { "label": "超级 AI 助理", "href": "/agent/", "description": "你的专属超级 AI 助理" },
+        { "label": "定价", "href": "/price/", "description": "版本与积分套餐" }
+      ]
+    },
+    { "label": "解决方案", "href": "/#scenarios" },
+    { "label": "客户案例", "href": "/#logos" },
+    { "label": "开源生态", "href": "/#opensource" },
+    { "label": "文档中心", "href": "https://docs.link-ai.tech/" },
+    { "label": "关于我们", "href": "/#about" }
+  ],
+  "actions": {
+    "login": { "label": "登录", "href": "https://link-ai.tech/console", "variant": "text" },
+    "primary": { "label": "立即体验", "href": "https://link-ai.tech/console", "variant": "primary" }
+  },
+  "footer": {
+    "about": "LinkAI 是一站式 AI 智能体平台，把模型、提示词、知识、工具、流程、渠道、分发、变现八大框架做到可扩展、可治理，让每个人都能创造自己的 AI 应用。",
+    "columns": [
+      {
+        "title": "产品",
+        "links": [
+          { "label": "智能体平台", "href": "/portal/" },
+          { "label": "超级 AI 助理", "href": "/agent/" },
+          { "label": "定价", "href": "/price/" },
+          { "label": "开放 API", "href": "https://docs.link-ai.tech/" }
+        ]
+      },
+      {
+        "title": "资源",
+        "links": [
+          { "label": "文档中心", "href": "https://docs.link-ai.tech/" },
+          { "label": "开源生态", "href": "/#opensource" },
+          { "label": "解决方案", "href": "/#scenarios" },
+          { "label": "客户案例", "href": "/#logos" }
+        ]
+      },
+      {
+        "title": "公司",
+        "links": [
+          { "label": "关于我们", "href": "/#about" },
+          { "label": "安全合规", "href": "/#security" },
+          { "label": "加入我们", "href": "/#about" },
+          { "label": "联系我们", "href": "/#about" }
+        ]
+      }
+    ],
+    "agreements": [
+      { "label": "使用协议", "href": "/agreement/" },
+      { "label": "隐私政策", "href": "/privacy/" }
+    ],
+    "icp": "粤ICP备xxxxxxxx号",
+    "copyright": "© 2026 深圳极简未来科技有限公司"
+  }
+}

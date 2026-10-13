@@ -1,0 +1,30 @@
+{
+  "hero": {
+    "badge": "LinkAI 智能体平台",
+    "title": "一起探索",
+    "titleHighlight": "AI 生产力",
+    "subtitle": "完善的 Agent 工具链，一站式搭建和管理你的 AI Agent 应用。从模型到渠道，从知识到变现，八大框架就绪。",
+    "ctas": [
+      { "label": "立即体验", "href": "https://link-ai.tech/console", "variant": "primary" },
+      { "label": "查看文档", "href": "https://docs.link-ai.tech/", "variant": "secondary" }
+    ]
+  },
+  "toolchain": {
+    "title": "完善的 Agent 工具链",
+    "subtitle": "从创建到分发的全链路能力",
+    "items": [
+      { "title": "创建", "description": "提示词即应用，知识库应用深度定制", "icon": "app" },
+      { "title": "编排", "description": "工作流拖拉拽编排，多智能体协作", "icon": "workflow" },
+      { "title": "增强", "description": "知识库、数据库、插件持续增强能力", "icon": "knowledge" },
+      { "title": "接入", "description": "网页、微信、企微、钉钉、飞书全渠道", "icon": "channels" },
+      { "title": "运营", "description": "对话管理、数据看板、客户管理", "icon": "chat" },
+      { "title": "变现", "description": "应用广场公开分发，创作收益到账", "icon": "chart" }
+    ]
+  },
+  "highlights": [
+    { "title": "零代码搭建", "description": "业务人员也能上手，分钟级创建可用的 AI 应用", "icon": "rocket" },
+    { "title": "效果可调试", "description": "全参数暴露 + 检索测试 + 对话调试，调优权交给用户", "icon": "sliders" },
+    { "title": "企业级治理", "description": "多租户隔离、版本权益矩阵、数据范围权限", "icon": "shield" },
+    { "title": "开放生态", "description": "开放 API、CLI、开源社区，与开发者共同成长", "icon": "opensource" }
+  ]
+}

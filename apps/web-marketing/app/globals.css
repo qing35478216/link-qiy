@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f8fc;
+  --bg-card: #ffffff;
+  --border: #e6eaf2;
+  --text: #16213a;
+  --text-secondary: #5a6b8c;
+}
+
+.dark {
+  --bg: #0c1220;
+  --bg-soft: #111a2e;
+  --bg-card: #152036;
+  --border: #263352;
+  --text: #e8edf7;
+  --text-secondary: #93a3c2;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+@layer components {
+  .container-site {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+  .card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    @apply rounded-2xl;
+  }
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+  .section-title {
+    @apply text-2xl sm:text-3xl font-bold tracking-tight;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white hover:bg-brand-600;
+  }
+  .btn-secondary {
+    @apply btn border;
+    border-color: var(--border);
+    color: var(--text);
+    background-color: var(--bg-card);
+  }
+  .btn-secondary:hover {
+    border-color: var(--brand-500, #2e6be6);
+    color: #2e6be6;
+  }
+  .btn-text {
+    @apply btn px-3 text-brand-500 hover:text-brand-600;
+  }
+}
+
+/* 跑马灯：悬停暂停 */
+.marquee-track:hover {
+  animation-play-state: paused;
+}
