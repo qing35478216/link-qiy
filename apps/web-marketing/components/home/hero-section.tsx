@@ -22,7 +22,7 @@ export function HeroSection() {
       <div className="container-site flex flex-col items-center py-20 text-center sm:py-28">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
           {hero.title}
-          <span className="text-brand-500">{hero.titleHighlight}</span>
+          <span className="text-brand-accent">{hero.titleHighlight}</span>
         </h1>
         <p className="text-secondary mt-6 max-w-3xl text-base leading-relaxed sm:text-lg">
           {hero.subtitle}

@@ -20,8 +20,9 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b backdrop-blur" style={{ borderColor: 'var(--border)', backgroundColor: 'color-mix(in srgb, var(--bg) 85%, transparent)' }}>
       <div className="container-site flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight" aria-label={site.brand.name}>
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-white">
+        {/* 无 aria-label：可见文字（logoText）本身即品牌名，加 aria-label 会与可见文本不匹配 */}
+        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
+          <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-white">
             <Icon name="sparkles" className="h-5 w-5" />
           </span>
           {site.brand.logoText}
@@ -33,12 +34,12 @@ export function SiteHeader() {
               <Link
                 href={item.href}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-colors ${
-                  isActive(item.href) ? 'text-brand-500 font-medium' : 'hover:text-brand-500'
+                  isActive(item.href) ? 'text-brand-accent font-medium' : 'hover:text-brand-accent'
                 }`}
               >
                 {item.label}
                 {item.badge && (
-                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                  <span className="badge-red rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
                     {item.badge}
                   </span>
                 )}
@@ -69,7 +70,7 @@ export function SiteHeader() {
         <div className="hidden items-center gap-3 lg:flex">
           <ThemeToggle />
           {site.actions.login.variant === 'text' ? (
-            <Link href={site.actions.login.href} className="text-sm hover:text-brand-500">
+            <Link href={site.actions.login.href} className="text-sm hover:text-brand-accent">
               {site.actions.login.label}
             </Link>
           ) : null}
@@ -103,7 +104,7 @@ export function SiteHeader() {
               >
                 {item.label}
                 {item.badge && (
-                  <span className="ml-2 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] text-white">{item.badge}</span>
+                  <span className="badge-red ml-2 rounded-full px-1.5 py-0.5 text-[10px] text-white">{item.badge}</span>
                 )}
               </Link>
             ))}

@@ -36,13 +36,14 @@ export function PricingTabs() {
             {plans.map((plan) => (
               <article key={plan.key} className="card relative flex flex-col p-6">
                 {plan.badge && (
-                  <span className="absolute -top-2.5 right-4 rounded-full bg-red-500 px-2 py-0.5 text-[11px] text-white">
+                  <span className="badge-red absolute -top-2.5 right-4 rounded-full px-2 py-0.5 text-[11px] font-medium text-white">
                     {plan.badge}
                   </span>
                 )}
-                <h3 className="text-lg font-semibold">{plan.name}</h3>
+                {/* h1(页面 hero) 之后直接出现方案名，用 h2 保持标题层级连续 */}
+                <h2 className="text-lg font-semibold">{plan.name}</h2>
                 <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-brand-500">{plan.price}</span>
+                  <span className="text-brand-accent text-2xl font-bold">{plan.price}</span>
                   {plan.originalPrice && (
                     <span className="text-secondary text-sm line-through">{plan.originalPrice}</span>
                   )}
@@ -72,7 +73,7 @@ export function PricingTabs() {
                 <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
                   <th className="p-4 text-left font-medium">权益</th>
                   {plans.map((p) => (
-                    <th key={p.key} className={`p-4 text-center font-semibold ${p.key === 'standard' ? 'text-brand-500' : ''}`}>
+                    <th key={p.key} className={`p-4 text-center font-semibold ${p.key === 'standard' ? 'text-brand-accent' : ''}`}>
                       {p.name}
                       <span className="text-secondary block text-xs font-normal">{p.price}</span>
                     </th>
@@ -83,7 +84,7 @@ export function PricingTabs() {
                 {compare.rows.map((row, i) =>
                   row.group ? (
                     <tr key={`g-${i}`} className="border-b" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-soft)' }}>
-                      <td colSpan={planCount + 1} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-brand-500">
+                      <td colSpan={planCount + 1} className="text-brand-accent px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
                         {row.group}
                       </td>
                     </tr>
@@ -95,7 +96,7 @@ export function PricingTabs() {
                           {v === null ? (
                             <span className="text-secondary">✗</span>
                           ) : v === '✔' ? (
-                            <Icon name="check" className="mx-auto h-4 w-4 text-brand-500" />
+                            <Icon name="check" className="text-brand-accent mx-auto h-4 w-4" />
                           ) : (
                             v
                           )}
@@ -125,7 +126,7 @@ export function PricingTabs() {
                   </span>
                 )}
                 <p className="text-xl font-bold">{pack.points} 积分</p>
-                <p className="mt-2 text-2xl font-bold text-brand-500">{pack.price}</p>
+                <p className="text-brand-accent mt-2 text-2xl font-bold">{pack.price}</p>
                 <p className="text-secondary mt-2 text-xs">{pack.tagline}</p>
               </article>
             ))}

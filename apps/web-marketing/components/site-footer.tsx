@@ -21,7 +21,7 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2.5">
               {col.links.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-secondary text-sm hover:text-brand-500">
+                  <Link href={link.href} className="text-secondary text-sm hover:text-brand-accent">
                     {link.label}
                   </Link>
                 </li>
@@ -34,7 +34,7 @@ export function SiteFooter() {
         <div className="container-site flex flex-col items-center justify-between gap-3 py-5 text-xs text-secondary sm:flex-row">
           <div className="flex items-center gap-4">
             {site.footer.agreements.map((a) => (
-              <Link key={a.label} href={a.href} className="hover:text-brand-500">
+              <Link key={a.label} href={a.href} className="hover:text-brand-accent">
                 {a.label}
               </Link>
             ))}

@@ -46,7 +46,7 @@ export function FeatureTabs() {
           <ul className="mt-5 grid gap-2.5 sm:grid-cols-2">
             {tab.bullets.map((b) => (
               <li key={b} className="flex items-center gap-2 text-sm">
-                <Icon name="check" className="h-4 w-4 shrink-0 text-brand-500" />
+                <Icon name="check" className="h-4 w-4 shrink-0 text-brand-accent" />
                 {b}
               </li>
             ))}

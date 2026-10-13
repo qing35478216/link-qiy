@@ -9,6 +9,11 @@
   --border: #e6eaf2;
   --text: #16213a;
   --text-secondary: #5a6b8c;
+  /* 品牌色作为前景文字使用：浅色下 #2E6BE6 对白底对比度 4.6:1，达 WCAG AA */
+  --brand-text: #2e6be6;
+  /* 角标红底白字：两种模式统一用 #dc2626（对白字 4.8:1，达 AA）。
+     深色模式不换更亮的红——那样白字对比度反而跌破 4.5:1。 */
+  --badge-red: #dc2626;
 }
 
 .dark {
@@ -18,6 +23,8 @@
   --border: #263352;
   --text: #e8edf7;
   --text-secondary: #93a3c2;
+  /* 深色底上品牌蓝对比度不足（3.4:1），提亮到 #7FA9FF（6.2:1） */
+  --brand-text: #7fa9ff;
 }
 
 html {
@@ -41,6 +48,21 @@ body {
   .text-secondary {
     color: var(--text-secondary);
   }
+  /* 品牌色文字：随暗色模式切换到达标对比度的提亮色。
+     类名带 -accent 后缀是刻意的——直接叫 .text-brand 会与 Tailwind 由
+     brand.DEFAULT 生成的同名工具类冲突，且 utilities 层优先级更高会覆盖本规则。 */
+  .text-brand-accent {
+    color: var(--brand-text);
+  }
+  .text-brand-accent\/30 {
+    color: color-mix(in srgb, var(--brand-text) 30%, transparent);
+  }
+  .text-brand-accent\/40 {
+    color: color-mix(in srgb, var(--brand-text) 40%, transparent);
+  }
+  .badge-red {
+    background-color: var(--badge-red);
+  }
   .section-title {
     @apply text-2xl sm:text-3xl font-bold tracking-tight;
   }
@@ -57,11 +79,12 @@ body {
     background-color: var(--bg-card);
   }
   .btn-secondary:hover {
-    border-color: var(--brand-500, #2e6be6);
-    color: #2e6be6;
+    border-color: var(--brand-text);
+    color: var(--brand-text);
   }
   .btn-text {
-    @apply btn px-3 text-brand-500 hover:text-brand-600;
+    @apply btn px-3;
+    color: var(--brand-text);
   }
 }
 
