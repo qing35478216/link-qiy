@@ -294,22 +294,29 @@ def _record_known_gap(gap_id: str, offenders: list[str]) -> None:
     entry["_last_seen"] = offenders
 
 
-def test_login_paths_both_enforce_agreement(console_spec) -> None:
-    """安全合规铁律：所有登录路径都必须强制协议勾选，不允许某条通道绕过。
+def test_login_paths_agreement_consistency(console_spec) -> None:
+    """安全合规铁律：**各登录通道之间**的协议勾选约束必须一致。
 
-    现状（GAP-CONTRACT-004）：短信登录 POST /auth/phone/login 有
-    required: [phone, smsCode, agreementAccepted] 且声明 403 AGREEMENT_NOT_ACCEPTED；
-    但微信扫码路径完全没有等价约束。这不是形式问题——
-    用户在网页勾选过协议后，改用微信扫码登录时服务端不再校验，
-    等于**协议同意状态可被跨通道绕过**。
+    口径说明（主理人 T-016 裁决后调整）：
+    早期版本测的是「每条登录路径都必须有协议勾选约束」（存在性检测）。
+    那个口径有两个问题：一是把「何约还没补」和「有人删掉了」混为一谈；
+    二是若契约将来引入某个天然不需要协议签署的端点（如纯静默续期），
+    规则会误报。
 
-    本条走缺口基线：登记在known_gaps.py，存量不阻塞；何约补齐后自动转PASS，
-    且此后任何「删掉协议勾选」的改动都会立即 FAIL。
+    现在的口径是**一致性检测**：找出约束最严的那条登录路径作为基准，
+    要求其他登录路径与之对齐。
+    - 现状（契约从未定义微信通道的协议约束）：扫码路径与 loginByPhone 不一致 → 报告
+    - 何约补齐微信端约束后：全部一致 → 自动转绿
+    - 任何人删掉已有约束 → 与基准不一致 → 立即 FAIL
+
+    注意 sms-code（发验证码）与 qrcode/{ticket}（轮询状态）**不是签发令牌的终结点**，
+    真正的登录发生在 loginByPhone 与扫码轮询的 confirmed 分支。
     """
-    from known_gaps import GAP_WECHAT_LOGIN_MISSING_AGREEMENT, KNOWN_GAPS
+    from known_gaps import GAP_WECHAT_LOGIN_MISSING_AGREEMENT
 
     paths = console_spec.get("paths") or {}
-    offenders: list[str] = []
+    enforcing: list[str] = []
+    not_enforcing: list[str] = []
 
     for path, item in paths.items():
         if not isinstance(item, dict):
@@ -318,32 +325,52 @@ def test_login_paths_both_enforce_agreement(console_spec) -> None:
             op = item.get(method)
             if not isinstance(op, dict):
                 continue
-            op_id = op.get("operationId") or f"{method.upper()} {path}"
-            if not _is_login_path(op_id, path):
+            label = f"{method.upper()} {path} ({op.get('operationId') or '?'})"
+            if not _is_agreement_bearing_login(op, path):
                 continue
-            if _enforces_agreement(op):
-                continue
-            offenders.append(f"{method.upper()} {path} ({op_id})")
+            (enforcing if _enforces_agreement(op) else not_enforcing).append(label)
 
-    if not offenders:
+    # 没有任何路径强制 → 无基准可比，交由 presence 类规则兜底，此处不报
+    if not enforcing:
         return
-    _record_known_gap(GAP_WECHAT_LOGIN_MISSING_AGREEMENT, offenders)
+
+    if not not_enforcing:
+        return
+
+    _record_known_gap(GAP_WECHAT_LOGIN_MISSING_AGREEMENT, not_enforcing)
     assert False, (
-        "以下登录路径未强制协议勾选：\n  " + "\n  ".join(offenders) + "\n"
-        "协议同意必须在**所有**登录通道上强制，否则可跨通道绕过。"
-        "契约缺口 GAP-CONTRACT-004：需在扫码路径补 agreementAccepted 约束与 "
-        "403 AGREEMENT_NOT_ACCEPTED 响应（请 Contract Engineer 处理）。"
-        "\n本条当前登记在 known_gaps.py 基线内——Phase 1 前必须清零。"
+        "以下登录通道未强制协议勾选，与已强制通道不一致：\n  "
+        + "\n  ".join(not_enforcing)
+        + "\n已强制协议勾选的通道（基准）：\n  "
+        + "\n  ".join(enforcing)
+        + "\n\n协议签署是法律效力前提，且微信扫码是默认登录方式。"
+          "各登录通道约束不一致即等于可跨通道绕过（契约缺口 GAP-CONTRACT-004）。"
+          "需由 Contract Engineer 在契约层补齐微信通道约束。"
+          "\n本条当前登记在 known_gaps.py 基线内——补齐后自动转绿。"
     )
 
 
-def _is_login_path(op_id: str, path: str) -> bool:
-    """判断是否是一条「能拿到令牌的登录路径」。"""
-    if path.startswith("/auth/") and any(
-        kw in path for kw in ("login", "qrcode", "sms-code")
-    ):
+def _is_agreement_bearing_login(op: dict[str, Any], path: str) -> bool:
+    """是否是一条「签发令牌的登录通道」——协议签署在此有法律意义。
+
+    界定依据是**契约实际语义**（读 v0.1.1 得出，不是猜）：
+    - 签发令牌的是两条：POST /auth/phone/login（返回 TokenPair）、
+      GET /auth/wechat/qrcode/{ticket}（契约明写「confirmed 时携带令牌」）。
+    - 不签发令牌的是：POST /auth/wechat/qrcode（只生成二维码）、
+      POST /auth/phone/sms-code（只发验证码）。协议同意不在这里发生，
+      把它们纳入会产生假失败。
+    - POST /auth/refresh 是续期而非初次登录，协议已在前次登录时同意过，
+      排除。
+
+    早期版本我按路径关键词（login/qrcode/sms-code）粗筛，把发验证码和生成二维码
+    也算成登录通道了——那是我口径错，会让规则要求在 GET 上传 agreementAccepted。
+    这里改为按「是否签发令牌」判定。
+    """
+    op_id = (op.get("operationId") or "").lower()
+    if op_id in {"loginbyphone", "getwechatqrcodeStatus".lower()}:
         return True
-    return op_id.lower().endswith(("login", "logins"))
+    #兜底：契约若新增登录通道，落在 /auth/ 且名字带 login/qrcode 结尾的也纳入
+    return path.startswith("/auth/") and op_id.endswith(("login", "qrcodestatus"))
 
 
 def _enforces_agreement(op: dict[str, Any]) -> bool:
