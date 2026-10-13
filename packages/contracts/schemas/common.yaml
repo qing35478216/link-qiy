@@ -1,0 +1,40 @@
+# 复用 schema 片段——三份规范共用，单一事实源
+Error:
+  type: object
+  required: [code, message, requestId]
+  properties:
+    code: { type: string, example: 'AGREEMENT_NOT_ACCEPTED' }
+    message: { type: string }
+    requestId: { type: string, description: 链路追踪 ID（排障用） }
+    details: { type: object, additionalProperties: true }
+TokenPair:
+  type: object
+  required: [accessToken, refreshToken, expiresIn]
+  properties:
+    accessToken: { type: string }
+    refreshToken: { type: string }
+    expiresIn: { type: integer, description: 访问令牌有效期（秒） }
+    tokenType: { type: string, default: Bearer }
+Page:
+  type: object
+  required: [items, nextCursor]
+  properties:
+    items: { type: array, items: { type: object } }
+    nextCursor: { type: string, nullable: true, description: 空串/null 表示无更多 }
+TenantHeader:
+  name: X-Tenant-Id
+  in: header
+  required: true
+  schema: { type: string }
+  description: 租户 ID（网关从 JWT 解析注入，前端透传）
+CursorParam:
+  name: cursor
+  in: query
+  required: false
+  schema: { type: string }
+  description: 上一页返回的 nextCursor
+LimitParam:
+  name: limit
+  in: query
+  required: false
+  schema: { type: integer, default: 20, minimum: 1, maximum: 100 }

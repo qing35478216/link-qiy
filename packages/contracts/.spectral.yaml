@@ -74,7 +74,8 @@ rules:
       有输入的操作必须声明 4xx 响应，客户端才能穷举错误处理分支。
       无参数的探针类接口（如 healthz）豁免。
     given: "$.paths[*][?((@property === 'get' || @property === 'post' || @property === 'put' || @property === 'patch' || @property === 'delete') && (@.requestBody || @.parameters))]"
-    severity: error
+    # Phase 0 提速（甲方指令：进度优先）：v0.1 允许错误分支后补，降为 warn；冻结前用 lint:strict 兜底
+    severity: warn
     then:
       field: responses
       function: schema
@@ -99,7 +100,8 @@ rules:
   linkai-error-response-5xx:
     description: 每个操作必须声明 5xx 响应（通常为 500）。
     given: $.paths[*][get,post,put,patch,delete]
-    severity: error
+    # Phase 0 提速（甲方指令：进度优先）：v0.1 允许错误分支后补，降为 warn；冻结前用 lint:strict 兜底
+    severity: warn
     then:
       field: responses
       function: schema
