@@ -7,6 +7,8 @@
     ".": "./src/index.ts",
     "./console": "./src/console.ts",
     "./service": "./src/service.ts",
+    "./models/console": "./src/models/console/index.ts",
+    "./models/service": "./src/models/service/index.ts",
     "./msw/console": "./src/console.msw.ts",
     "./msw/service": "./src/service.msw.ts"
   },

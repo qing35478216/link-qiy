@@ -3,25 +3,10 @@
  * DataTable —— 列表页表格（docs/04 2.3）。
  * 统一空/加载中/分页/批量选择；单元格可用 #cell-{prop} 插槽覆写。
  */
-import type { PropType } from 'vue';
-
-export interface DataTableColumn {
-  prop: string;
-  label: string;
-  width?: number | string;
-  align?: 'left' | 'center' | 'right';
-  /** 简单文本渲染；复杂渲染请用 #cell-{prop} 插槽 */
-  formatter?: (row: T, index: number) => string;
-}
-
-export interface DataTablePagination {
-  page: number;
-  pageSize: number;
-  total: number;
-}
+import type { DataTableColumn, DataTablePagination } from './DataTable.types';
 
 defineProps<{
-  columns: DataTableColumn[];
+  columns: DataTableColumn<T>[];
   rows: T[];
   rowKey: string;
   loading?: boolean;

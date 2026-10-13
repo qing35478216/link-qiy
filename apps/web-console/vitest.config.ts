@@ -1,45 +1,23 @@
-import { defineConfig } from 'vitest/config';
-import vue from '@vitejs/plugin-vue';
 import { fileURLToPath } from 'node:url';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import viteConfig from './vite.config';
 
-/** 测试环境复用主构建的 alias；MSW 走 node server + fetch adapter */
-export default defineConfig({
-  plugins: [vue()],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@linkai/sdk-ts/console': fileURLToPath(
-        new URL('../packages/sdk-ts/src/console.ts', import.meta.url),
-      ),
-      '@linkai/sdk-ts/service': fileURLToPath(
-        new URL('../packages/sdk-ts/src/service.ts', import.meta.url),
-      ),
-      '@linkai/sdk-ts/msw/console': fileURLToPath(
-        new URL('../packages/sdk-ts/src/console.msw.ts', import.meta.url),
-      ),
-      '@linkai/sdk-ts/msw/service': fileURLToPath(
-        new URL('../packages/sdk-ts/src/service.msw.ts', import.meta.url),
-      ),
-      '@linkai/ui': fileURLToPath(new URL('../packages/ui/src/index.ts', import.meta.url)),
-      '@linkai/ui/tokens.css': fileURLToPath(
-        new URL('../packages/ui/src/styles/tokens.css', import.meta.url),
-      ),
+/**
+ * 测试环境复用主构建的 plugins / resolve.alias —— 直接 mergeConfig(viteConfig)，
+ * 不再重复抄写 alias 表。抄写会导致 workspace 路径修正时漏改（本次 T-011 的
+ * ENOENT 根因就是 vite.config.ts 与 vitest.config.ts 各有一份 '../packages/'）。
+ * MSW 走 node server + fetch adapter。
+ */
+export default mergeConfig(
+  viteConfig,
+  defineConfig({
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      include: ['src/**/*.test.ts'],
+      setupFiles: [fileURLToPath(new URL('./src/test-setup.ts', import.meta.url))],
+      pool: 'forks',
+      testTimeout: 20000,
     },
-  },
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    include: ['src/**/*.test.ts'],
-    setupFiles: ['./src/test-setup.ts'],
-    deps: {
-      optimizer: {
-        web: {
-          enabled: true,
-          include: ['element-plus', '@element-plus/icons-vue'],
-        },
-      },
-    },
-    pool: 'forks',
-    testTimeout: 20000,
-  },
-});
+  }),
+);

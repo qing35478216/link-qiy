@@ -21,11 +21,16 @@ describe('LkJsonViewer', () => {
     expect(wrapper.text()).not.toContain('张三');
   });
 
-  it('expands deeper levels when expandDepth increases', () => {
-    const wrapper = mount(LkJsonViewer, { props: { data, expandDepth: 2 } });
-    expect(wrapper.text()).toContain('gpt-4o');
-    expect(wrapper.text()).toContain('0.7');
-    expect(wrapper.text()).toContain('张三');
+  it('opens one more level per expandDepth step', () => {
+    // 语义（JsonNodeView）：depth <= expandDepth 的容器默认展开
+    const depth1 = mount(LkJsonViewer, { props: { data, expandDepth: 1 } });
+    expect(depth1.text()).toContain('gpt-4o');
+    // 深度 2 的数组元素容器仍折叠
+    expect(depth1.text()).not.toContain('张三');
+
+    const depth2 = mount(LkJsonViewer, { props: { data, expandDepth: 2 } });
+    expect(depth2.text()).toContain('variables');
+    expect(depth2.text()).toContain('张三');
   });
 
   it('toggles a node on click', async () => {

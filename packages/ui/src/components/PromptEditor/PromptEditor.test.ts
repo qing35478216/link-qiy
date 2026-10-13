@@ -22,7 +22,7 @@ describe('LkPromptEditor', () => {
       props: { modelValue: '开头', variables: ['userName', 'topic'] },
     });
     const tags = wrapper.findAll('.lk-prompt-editor__variable');
-    await tags[0].trigger('click');
+    await tags[0]?.trigger('click');
     expect(wrapper.emitted('update:modelValue')).toEqual([['开头{{userName}}']]);
   });
 

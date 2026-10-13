@@ -48,7 +48,8 @@ describe('AppConfigPage', () => {
     expect(wrapper.text()).toContain('知识库配置');
     expect(wrapper.text()).toContain('插件配置');
     expect(wrapper.text()).toContain('高级配置');
-    expect(wrapper.find('input[placeholder="请输入应用名称"]').element.value).toBeTruthy();
+    const nameInput = wrapper.find('input[placeholder="请输入应用名称"]').element;
+    expect((nameInput as HTMLInputElement).value).toBeTruthy();
   });
 
   it('任一分区改动即整页脏标记，保存后清除', async () => {

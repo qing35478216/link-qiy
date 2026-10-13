@@ -22,7 +22,8 @@ describe('LkModelSelector', () => {
     await wrapper.find('.lk-model-selector__select').trigger('click');
     await wrapper.findComponent({ name: 'ElSelect' }).vm.$emit('change', 'gpt-4o-mini');
     expect(wrapper.emitted('update:modelValue')).toEqual([['gpt-4o-mini']]);
-    expect(wrapper.emitted('change')?.[0]?.[0]?.code).toBe('gpt-4o-mini');
+    const changePayload = wrapper.emitted('change')?.[0]?.[0] as ModelSelectorOption | undefined;
+    expect(changePayload?.code).toBe('gpt-4o-mini');
   });
 
   it('renders price per call when creditPerCall', () => {

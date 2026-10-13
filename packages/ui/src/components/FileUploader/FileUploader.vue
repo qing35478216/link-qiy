@@ -33,9 +33,9 @@ const emit = defineEmits<{
 const fileList = ref<UploadFileItem[]>([]);
 const uploadRef = ref<UploadInstance>();
 
-function validate(file: File): string | null {
+function validate(file: { name: string; size?: number }): string | null {
   const maxBytes = props.maxSizeMb * 1024 * 1024;
-  if (file.size > maxBytes) return `「${file.name}」超过 ${props.maxSizeMb}MB 限制`;
+  if ((file.size ?? 0) > maxBytes) return `「${file.name}」超过 ${props.maxSizeMb}MB 限制`;
   if (props.accept) {
     const exts = props.accept.split(',').map((ext) => ext.trim().toLowerCase());
     const lower = file.name.toLowerCase();
@@ -63,7 +63,7 @@ function onChange(file: UploadFile, _files: UploadFiles): void {
   }
   fileList.value.push({
     name: file.name,
-    size: file.size,
+    size: file.size ?? 0,
     status: 'ready',
     percent: 0,
   });

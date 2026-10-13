@@ -49,7 +49,7 @@ describe('Mock 联调：登录态→列表→创建→配置保存', () => {
 
   it('cursor 分页：翻页后不重复', async () => {
     const first = await fetchAppsPage({ limit: 2 });
-    const second = await fetchAppsPage({ limit: 2, cursor: first.nextCursor });
+    const second = await fetchAppsPage({ limit: 2, cursor: first.nextCursor ?? undefined });
     expect(first.items.map((app) => app.id)).not.toEqual(second.items.map((app) => app.id));
     expect(second.nextCursor).toBeNull();
   });

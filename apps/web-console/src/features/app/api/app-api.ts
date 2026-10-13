@@ -5,7 +5,7 @@
  * 此处用运行时守卫把 items 收窄为契约 App 类型——类型仍全部来自生成物。
  */
 import { consoleAPI } from '@/api';
-import type { App, AppConfig, ListApps200, ListAppsParams } from '@linkai/sdk-ts/console';
+import type { App, AppConfig, ListApps200, ListAppsParams } from '@linkai/sdk-ts/models/console';
 
 export type AppsPage = {
   items: App[];

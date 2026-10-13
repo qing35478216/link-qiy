@@ -12,7 +12,7 @@ describe('LkSessionList', () => {
     const wrapper = mount(LkSessionList, { props: { sessions, activeId: 's1' } });
     expect(wrapper.text()).toContain('今天的运势');
     expect(wrapper.find('.lk-session-list__item--active').text()).toContain('今天的运势');
-    await wrapper.findAll('.lk-session-list__item')[1].trigger('click');
+    await wrapper.findAll('.lk-session-list__item')[1]?.trigger('click');
     expect(wrapper.emitted('select')).toEqual([['s2']]);
   });
 
@@ -25,14 +25,14 @@ describe('LkSessionList', () => {
 
   it('filters by tab', async () => {
     const wrapper = mount(LkSessionList, { props: { sessions } });
-    await wrapper.findAll('.el-radio-button input')[1].setValue(true);
+    await wrapper.findAll('.el-radio-button input')[1]?.setValue(true);
     expect(wrapper.emitted('tab-change')).toEqual([['group']]);
     expect(wrapper.findAll('.lk-session-list__item')).toHaveLength(1);
   });
 
   it('emits create', async () => {
     const wrapper = mount(LkSessionList, { props: { sessions } });
-    await wrapper.findAll('button')[0].trigger('click');
+    await wrapper.findAll('button')[0]?.trigger('click');
     expect(wrapper.emitted('create')).toHaveLength(1);
   });
 

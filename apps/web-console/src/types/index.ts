@@ -1,5 +1,7 @@
 /**
  * types/ —— 契约类型唯一出口（铁律：全部 re-export 自 @linkai/sdk-ts 生成物，零手写）。
+ * 注：console.ts/service.ts 未 re-export models（SDK 打包缺口已上报），
+ * 类型经 @linkai/sdk-ts/models/* 子路径直消费生成物（vite/tsconfig alias 指向源码）。
  */
 export type {
   AdvancedConfig,
@@ -28,7 +30,7 @@ export type {
   ShareConfig,
   UserProfile,
   UserProfilePlan,
-} from '@linkai/sdk-ts/console';
+} from '@linkai/sdk-ts/models/console';
 
 export type {
   ApiKey,
@@ -39,4 +41,4 @@ export type {
   Model,
   ModelCapabilitiesItem,
   ModelPrice,
-} from '@linkai/sdk-ts/service';
+} from '@linkai/sdk-ts/models/service';

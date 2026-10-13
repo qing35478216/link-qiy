@@ -3,7 +3,7 @@
  * 视觉基准：linkai-screenshots/（青易ai / 紫微斗数 / 塔罗 等卡片形态）。
  * 注意：仅 Mock 数据，不构成契约；契约以 packages/contracts 为准。
  */
-import type { App, AppConfig, QuotaSummary, UserProfile } from '@linkai/sdk-ts/console';
+import type { App, AppConfig, QuotaSummary, UserProfile } from '@linkai/sdk-ts/models/console';
 
 export const MOCK_TENANT_ID = 'tenant-demo-0001';
 

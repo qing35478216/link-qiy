@@ -30,7 +30,7 @@ describe('FactoryPage', () => {
     await flushPromises();
     await flushPromises();
 
-    await wrapper.findAll('.el-radio-button input')[2].setValue(true);
+    await wrapper.findAll('.el-radio-button input')[2]?.setValue(true);
     await flushPromises();
     await flushPromises();
 

@@ -11,6 +11,7 @@ export interface ModelSelectorOption {
   provider?: string;
   capabilities?: string[];
   contextLength?: number;
+  enabled?: boolean;
   price?: { inputPer1k?: number; outputPer1k?: number; creditPerCall?: number };
 }
 

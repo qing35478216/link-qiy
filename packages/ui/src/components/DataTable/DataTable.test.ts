@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import LkDataTable from './DataTable.vue';
+import type { DataTableColumn } from './DataTable.types';
 
 interface Row {
   id: string;
@@ -12,9 +13,9 @@ const rows: Row[] = [
   { id: 'b', name: '紫微斗数' },
 ];
 
-const columns = [
+const columns: DataTableColumn<Row>[] = [
   { prop: 'name', label: '名称' },
-  { prop: 'id', label: '标识', formatter: (row: Row) => `#${row.id}` },
+  { prop: 'id', label: '标识', formatter: (row) => `#${row.id}` },
 ];
 
 describe('LkDataTable', () => {

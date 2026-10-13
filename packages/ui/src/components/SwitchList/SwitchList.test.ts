@@ -13,7 +13,7 @@ describe('LkSwitchList', () => {
     expect(wrapper.text()).toContain('图像识别');
     expect(wrapper.text()).toContain('联网检索');
     const switches = wrapper.findAllComponents({ name: 'ElSwitch' });
-    switches[1].vm.$emit('update:modelValue', true);
+    switches[1]?.vm.$emit('update:modelValue', true);
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted('change')).toEqual([['search', true]]);
   });

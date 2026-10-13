@@ -47,6 +47,7 @@ export default [
       },
       globals: { ...globals.browser },
     },
+    plugins: { '@typescript-eslint': tseslintPlugin },
     rules: {
       'vue/multi-word-component-names': 'error',
       'vue/no-v-html': 'error',
