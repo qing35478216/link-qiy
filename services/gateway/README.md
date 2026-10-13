@@ -62,8 +62,32 @@ Resolve      CORS     Auth     Limit      Forward
 
 - `Principal.TenantID` 为空 → **一律拒绝**，不进入下游
 - 客户端声明的 `X-Tenant-Id` 与凭证租户不符 → **403**（跨租户越权）
-- 网关向下游注入 `X-Tenant-Id` / `X-Subject-Id`，下游只信任来自网关的该头
+- 网关向下游注入 `X-Tenant-Id` / `X-User-Id` / `X-Trace-Id`，
+  下游只信任来自网关的这些头
 - 限流三个维度的限流键**都含租户**，一个租户打满不影响其他租户
+
+### 身份头：网关是唯一可信来源
+
+下游服务（model-proxy 等）**信任网关注入的身份头**，因此网关必须在转发前
+**剥离客户端传入的同名头**，再注入可信值：
+
+```
+客户端  X-User-Id: victim-9999  ──▶ 网关剥离 ──▶ 注入真实值 ──▶ 下游收到真实值
+```
+
+不做剥离的后果（已实测）：客户端伪造的 `X-User-Id` 会原样穿透到下游，
+用户可伪造身份 → 跨租户串账。
+
+| 头 | 网关行为 |
+|---|---|
+| `X-Tenant-Id` | 剥离后注入 `Principal.TenantID` |
+| `X-User-Id` | 剥离后注入 `Principal.SubjectID` |
+| `X-Gateway-Surface` | 剥离后注入入口面 |
+| `X-Trace-Id` | **一律重新生成**（trace_id 是计费对账与审计的关联键，不可沿用客户端值） |
+| `traceparent` | 剥离（由 OTel 层另行处理） |
+| `X-Subject-Id` | 已废弃，但仍剥离（防旧名静默穿透） |
+
+新增下游服务时，记得把新身份头加进 `routing.identityHeaders`。
 
 ---
 
@@ -76,10 +100,31 @@ Resolve      CORS     Auth     Limit      Forward
 3. **连接时校验** —— 解析一次 → 校验 → **连字面 IP**，消除 DNS rebinding 的 TOCTOU 窗口
 
 拦截范围：回环 / RFC1918 / 链路本地（含云元数据 `169.254.169.254`）/
-CGNAT `100.64/10` / 组播 / 文档保留段 / IPv6 转换地址内嵌私网 IPv4（6to4、Teredro、NAT64）。
+CGNAT `100.64/10` / 组播 / 基准测试段 `198.18/15` / 文档保留段 /
+IPv6 转换地址内嵌私网 IPv4（6to4、Teredro、NAT64）。
 
 > ⚠️ 出站请求**不要用** `http.DefaultTransport`，否则 `HTTP_PROXY` 环境变量
 > 会让请求绕过本守卫。`Guard.Transport()` 已显式 `Proxy: nil`。
+
+### 与 model-proxy 的 SSRF 闸门的关系
+
+平台有两处出网口，各有一道闸门，**刻意不合并**：
+
+| 闸门 | 位置 | 守护的出网 |
+|---|---|---|
+| Go（`internal/ssrf`） | 网关进程内 | 网关 → 内部服务；未来的 webhook 回调 / 链接预览 / 从 URL 导入 |
+| Python（`infra/ssrf.py`） | model-proxy 进程内 | model-proxy → 外部模型厂商 API（URL 来自租户 base_url，不可信） |
+
+不合并的理由：两者出网目标完全不同，白名单无法互相套用；
+且收敛为单一来源要把 Python 的出网全部改为经网关转发，
+会给**对话热路径**凭空加一跳网络延迟，与 docs/03 性能预算冲突。
+
+代价是两套规则可能漂移，因此**网段表与主机黑名单逐条镜像对齐**，
+并由 `TestRuleSetAlignmentWithModelProxy` 锁定：任一侧改网段表，
+Go 侧用例即失败。方向性约定：**Go 侧可以更严，不得更松**。
+
+> 对齐时已发现真实分歧：Go 侧曾把 `198.18.0.0/15` 误写成 `198.18/19`，
+> 导致 `198.19.x.x` 从网关侧漏放。
 
 ---
 
