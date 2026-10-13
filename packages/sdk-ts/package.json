@@ -1,0 +1,28 @@
+{
+  "name": "@linkai/sdk-ts",
+  "version": "0.1.0",
+  "description": "LinkAI 前端 SDK——由 packages/contracts OpenAPI 契约经 orval 生成（客户端 + 类型 + MSW handlers），禁止手改 src/",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./console": "./src/console.ts",
+    "./service": "./src/service.ts",
+    "./msw/console": "./src/console.msw.ts",
+    "./msw/service": "./src/service.msw.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.13.2"
+  },
+  "peerDependencies": {
+    "@faker-js/faker": "^9",
+    "msw": "^2"
+  },
+  "peerDependenciesMeta": {
+    "@faker-js/faker": { "optional": true },
+    "msw": { "optional": true }
+  },
+  "license": "UNLICENSED"
+}

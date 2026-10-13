@@ -30,7 +30,8 @@
 - 前端：ESLint + Prettier + Stylelint；Python：Ruff + Black + mypy --strict；Go：golangci-lint
 - 提交信息：`feat/fix/refactor/chore(scope): 描述 [T-xxx]`
 - 分支：`feat/T-xxx-简述`，短命分支，禁止直接推 main
-- 测试：领域层单测覆盖率 ≥70%；跨端改动必须带 Pact 契约测试
+- 测试：跨端改动必须带 Pact 契约测试（Phase 0 可延后至服务落地时补齐）
+- **Phase 0 轻量门禁（甲方指令：进度优先）**：默认合并制——实现者自验（lint/构建/自测跑通）+ 主理人 diff 抽查（领地 + 关键文件）即合并；全量 QA 独立门禁仅保留三类：资金相关、契约变更、安全相关；领域层覆盖率 ≥70% 在 Phase 0 降为建议值，Phase 1 恢复硬门禁
 - 新依赖引入必须先进工单"依赖清单"（库名/版本/license/引入理由）；lockfile 一并提交，版本 pin，不准随手加依赖
 - 开源选型记录（候选对比表 + 推荐理由 + 集成方式）是功能 PR 的必填内容
 

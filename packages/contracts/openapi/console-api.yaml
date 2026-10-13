@@ -1,0 +1,473 @@
+openapi: 3.1.0
+info:
+  title: LinkAI Console API（管理面）
+  description: |
+    Builder 控制台管理面契约 v0.1.0。
+    多租户：除登录/注册类端点外，所有端点要求 `X-Tenant-Id` 请求头（平台在网关解析 JWT 后注入，控制台前端透传）。
+    分页：列表统一 cursor 分页（limit + cursor，响应含 nextCursor，空表示无更多）。
+  version: 0.1.0
+servers:
+  - url: /api/console/v1
+tags:
+  - name: Auth
+  - name: Users
+  - name: Apps
+  - name: Quota
+paths:
+  /auth/wechat/qrcode:
+    post:
+      tags: [Auth]
+      summary: 发起微信扫码登录
+      operationId: createWechatQrcode
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scene: { type: string, enum: [login, bind], default: login }
+      responses:
+        '200':
+          description: 二维码已生成
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ticket, qrUrl, expiresAt]
+                properties:
+                  ticket: { type: string }
+                  qrUrl: { type: string, format: uri }
+                  expiresAt: { type: string, format: date-time }
+  /auth/wechat/qrcode/{ticket}:
+    get:
+      tags: [Auth]
+      summary: 轮询扫码状态
+      operationId: getWechatQrcodeStatus
+      security: []
+      parameters:
+        - { name: ticket, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 状态（confirmed 时携带令牌）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [pending, scanned, confirmed, expired] }
+                  tokens: { $ref: '../schemas/common.yaml#/TokenPair' }
+  /auth/phone/sms-code:
+    post:
+      tags: [Auth]
+      summary: 发送手机短信验证码
+      operationId: sendSmsCode
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string, example: '13800138000' }
+                scene: { type: string, enum: [login, bind], default: login }
+      responses:
+        '204': { description: 已发送（限流由网关控制） }
+  /auth/phone/login:
+    post:
+      tags: [Auth]
+      summary: 手机号+验证码登录（强制协议勾选）
+      operationId: loginByPhone
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, smsCode, agreementAccepted]
+              properties:
+                phone: { type: string }
+                smsCode: { type: string, minLength: 4, maxLength: 8 }
+                agreementAccepted: { type: boolean }
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/TokenPair' }
+        '403':
+          description: 未勾选协议
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Error' }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: 刷新访问令牌
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: 新令牌对
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/TokenPair' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 登出（吊销刷新令牌）
+      operationId: logout
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: 已登出 }
+  /me:
+    get:
+      tags: [Users]
+      summary: 个人信息 + 版本徽标
+      operationId: getMyProfile
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '../schemas/common.yaml#/TenantHeader' }]
+      responses:
+        '200':
+          description: 个人资料
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+    patch:
+      tags: [Users]
+      summary: 更新个人信息（头像/昵称/手机号）
+      operationId: updateMyProfile
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '../schemas/common.yaml#/TenantHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserProfile' }
+      responses:
+        '200':
+          description: 更新后资料
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfile' }
+  /apps:
+    get:
+      tags: [Apps]
+      summary: 应用列表（cursor 分页）
+      operationId: listApps
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { $ref: '../schemas/common.yaml#/CursorParam' }
+        - { $ref: '../schemas/common.yaml#/LimitParam' }
+        - { name: type, in: query, schema: { type: string, enum: [lightweight, knowledge, all] } }
+      responses:
+        '200':
+          description: 应用分页列表
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Page' }
+    post:
+      tags: [Apps]
+      summary: 创建应用（轻量/知识库两类）
+      operationId: createApp
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '../schemas/common.yaml#/TenantHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/App' }
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/App' }
+  /apps/{appId}:
+    get:
+      tags: [Apps]
+      summary: 应用详情
+      operationId: getApp
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 应用
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/App' }
+    patch:
+      tags: [Apps]
+      summary: 更新应用基础信息
+      operationId: updateApp
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/App' }
+      responses:
+        '200':
+          description: 更新后应用
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/App' }
+    delete:
+      tags: [Apps]
+      summary: 删除应用
+      operationId: deleteApp
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 已删除 }
+  /apps/{appId}/config:
+    get:
+      tags: [Apps]
+      summary: 读取配置七件套
+      operationId: getAppConfig
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 七件套配置
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppConfig' }
+    put:
+      tags: [Apps]
+      summary: 保存配置七件套（保存即新版本）
+      operationId: putAppConfig
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AppConfig' }
+      responses:
+        '200':
+          description: 保存成功（返回新版本号）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: integer, format: int64 }
+  /apps/{appId}/publish:
+    post:
+      tags: [Apps]
+      summary: 公开开关-发布到广场（发 AppPublished 事件）
+      operationId: publishApp
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: 已发布' }
+    delete:
+      tags: [Apps]
+      summary: 公开开关-下架（发 AppUnpublished 事件）
+      operationId: unpublishApp
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: 已下架' }
+  /apps/{appId}/versions:
+    get:
+      tags: [Apps]
+      summary: 配置版本历史
+      operationId: listAppVersions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+        - { $ref: '../schemas/common.yaml#/CursorParam' }
+        - { $ref: '../schemas/common.yaml#/LimitParam' }
+      responses:
+        '200':
+          description: 版本分页列表
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Page' }
+    post:
+      tags: [Apps]
+      summary: 手动创建配置快照
+      operationId: snapshotAppConfig
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+      responses:
+        '201':
+          description: 快照版本号
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: integer, format: int64 }
+  /apps/{appId}/versions/{version}/rollback:
+    post:
+      tags: [Apps]
+      summary: 回滚到指定配置版本
+      operationId: rollbackAppConfig
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '../schemas/common.yaml#/TenantHeader' }
+        - { name: appId, in: path, required: true, schema: { type: string } }
+        - { name: version, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: 回滚后当前版本
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: integer, format: int64 }
+  /quota/summary:
+    get:
+      tags: [Quota]
+      summary: 版本徽标 + 配额面板数据
+      operationId: getQuotaSummary
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '../schemas/common.yaml#/TenantHeader' }]
+      responses:
+        '200':
+          description: 配额面板
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuotaSummary' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id: { type: string }
+        nickname: { type: string }
+        avatarUrl: { type: string, format: uri }
+        phone: { type: string }
+        plan: { type: string, enum: [basic, standard, pro, enterprise] }
+        agreementAcceptedAt: { type: string, format: date-time }
+    App:
+      type: object
+      required: [name, type]
+      properties:
+        id: { type: string, readOnly: true }
+        name: { type: string, maxLength: 64 }
+        description: { type: string, maxLength: 512 }
+        type: { type: string, enum: [lightweight, knowledge] }
+        iconUrl: { type: string, format: uri }
+        published: { type: boolean, readOnly: true }
+        currentVersion: { type: integer, format: int64, readOnly: true }
+        createdAt: { type: string, format: date-time, readOnly: true }
+        updatedAt: { type: string, format: date-time, readOnly: true }
+    AppConfig:
+      type: object
+      description: 配置七件套——全部段落透传至运行时（平台不预设最佳值）
+      properties:
+        basic: { $ref: '#/components/schemas/BasicConfig' }
+        share: { $ref: '#/components/schemas/ShareConfig' }
+        modelPrompt: { $ref: '#/components/schemas/ModelPromptConfig' }
+        knowledge: { $ref: '#/components/schemas/KnowledgeConfig' }
+        data: { $ref: '#/components/schemas/DataConfig' }
+        plugins: { $ref: '#/components/schemas/PluginsConfig' }
+        advanced: { $ref: '#/components/schemas/AdvancedConfig' }
+    BasicConfig:
+      type: object
+      properties:
+        welcomeMessage: { type: string }
+        guideQuestions: { type: array, items: { type: string }, maxItems: 5 }
+        avatarUrl: { type: string, format: uri }
+    ShareConfig:
+      type: object
+      properties:
+        shareEnabled: { type: boolean }
+        sharePath: { type: string }
+        showBranding: { type: boolean }
+    ModelPromptConfig:
+      type: object
+      properties:
+        modelCode: { type: string, description: 模型元数据编码（service-api.yaml#/components/schemas/Model.code） }
+        systemPrompt: { type: string, description: 应用设定（人设/流程/约束），用户数据 }
+        temperature: { type: number, minimum: 0, maximum: 2 }
+        memoryRounds: { type: integer, minimum: 0, maximum: 50 }
+        contextLength: { type: integer }
+        variables: { type: array, items: { type: object, properties: { name: { type: string }, value: { type: string } } } }
+    KnowledgeConfig:
+      type: object
+      properties:
+        datasetIds: { type: array, items: { type: string } }
+        similarityThreshold: { type: number, minimum: 0, maximum: 1 }
+        semanticTopK: { type: integer }
+        fulltextTopK: { type: integer }
+        missStrategy: { type: string, enum: [free, fixedMessage, humanTransfer] }
+        missMessage: { type: string }
+        citationEnabled: { type: boolean }
+        queryRewriteEnabled: { type: boolean }
+        rerankEnabled: { type: boolean }
+    DataConfig:
+      type: object
+      properties:
+        dbDatasetId: { type: string, description: 绑定数据库模块数据集 }
+        tableSyncCron: { type: string, description: cron 表达式 }
+    PluginsConfig:
+      type: object
+      properties:
+        pluginIds: { type: array, items: { type: string } }
+        execStrategy: { type: string, enum: [knowledgeFirst, pluginFirst, parallel] }
+        triggerKeywords: { type: array, items: { type: string } }
+    AdvancedConfig:
+      type: object
+      properties:
+        humanTransferEnabled: { type: boolean }
+        humanTransferKeyword: { type: string }
+        humanizeEnabled: { type: boolean }
+        rateLimitQpm: { type: integer }
+    QuotaSummary:
+      type: object
+      properties:
+        plan: { type: string, enum: [basic, standard, pro, enterprise] }
+        planBadge: { type: string, description: 版本徽标文案 }
+        walletBalance: { type: integer, format: int64, description: 积分余额 }
+        upgradeUrl: { type: string, format: uri }
+        usage:
+          type: object
+          properties:
+            messagesUsed: { type: integer, format: int64 }
+            messagesLimit: { type: integer, format: int64 }
+            tokensUsed: { type: integer, format: int64 }
+            tokensLimit: { type: integer, format: int64 }
