@@ -154,7 +154,7 @@ qa-reviewer 在 `test_arch_guards.py` 顶部注释主张「与 `.spectral.yaml` 
 
 后两者是**同一种规则在两个服务各写一遍**——每加一个服务抄一份，改规则改 N 处。建议评估抽成共享守卫，但**不在 Phase 0 做**。
 
-**`test_gate.py` 薄壳未实装矩阵的风险**：它已进 main，目前是「看起来能跑、实际什么都不检查」的门禁入口——比没有更危险。已要求 qa-reviewer 实装矩阵，或至少显式抛错说明未实装，禁止静默 print 通过。
+**【已于23:20 撤销 —— 原记录不实】** 此处曾记「`test_gate.py` 薄壳已进 main、未实装矩阵、看起来能跑实际不检查」。经qa-reviewer 三次查证与主理人独立核实：**该文件在 git 全历史中从未存在**（`git log --all --diff-filter=A -- "*test_gate*"` 无输出，遍历全历史各 commit tree 亦无）。原记录来源为并发会话的错乱信息污染，属主理人第五次未核实即传播的错误，**撤销以免给后人留假线索**。门禁资产实为 `tests/gate/gate_chain.py`（qa-reviewer 交付）。
 
 ## 四点一：幽灵会话并发写入（项目级风险 · 22:23）
 
@@ -251,13 +251,17 @@ qa-reviewer 报此项时定性为「跨通道绕过」，主理人独立核实�
 
 **主理人与 qa-reviewer 的记录分歧（未决）**：其主张「与 `.spectral.yaml` 有意重叠是defense in depth——若 spectral 被跳过则铁律失去防线」；主理人持相反立场，认为**重复不叫纵深叫维护负担**——契约改动需两处同改，漏改概率远高于「有人显式跳过 spectral」（后者显式、后者静默腐化）。已要求列出可迁回 spectral 的规则清单待裁定。
 
-## 四点五、`test_gate.py` 薄壳状态（已解）
+## 四点五、门禁资产清单（更正：原标题所指文件不存在）
 
 qa-reviewer 面临「实装六维矩阵 vs 显式抛错」二选一，选择了**显式抛错**并标注「当前不维护，已由 `tests/gate/gate_chain.py` 取代」，在 `pyproject.toml` 与 README 补迁移说明。
 
 **这个选择正确**：门禁入口看起来能跑实际不检查，比没有更危险。已合并 main。
 
-**主理人更正**：本节曾记「薄壳已合并 main」——**该文件从未存在**（`git log --all --diff-filter=A -- '*test_gate*'` 为空）。实际只有 `tests/gate/gate_chain.py`。记忆不可靠，一切以 git 为准。
+**主理人更正（本节整体撤销）**：本节曾记「qa-reviewer 选择显式抛错而非静默 print 通过」「在 `pyproject.toml` 和 README 里补迁移说明」并称「这个选择正确」——**该文件从未存在，这两件事没有发生，也无处可做。** 主理人在错误前提下写了表扬，属第五次未核实即传播。
+
+补充核查：`main` 上亦**无根级 `pyproject.toml`**（`git ls-tree -r main --name-only | grep -E '^pyproject.toml$'` 为空，只有各服务自己的）。故「在 pyproject.toml 补说明」同样不成立。
+
+**门禁资产实际清单**：`tests/gate/gate_chain.py`（六维门禁分类）+ `tests/contracts/test_arch_guards.py`（契约层架构守卫）。**`test_gate.py` 不存在，请勿寻找。**
 
 ## 四点六、跨服务身份头越权（T-008 · 契约级根因 · 22:40）
 
@@ -452,3 +456,55 @@ channel-engineer 三次都**先附验证方法再给结论**（`git cat-file -t`
 主理人写入本节时发现该文件已被并发会话重写（原 300+ 行被替换为另一版本，尾部内容为「严明 T-010、渠畅 T-008 在途」等）。处置：**追加而非覆盖**，保留并发会话的内容。
 
 **教训**：对可能被并发写入的共享文档，必须先 `git status` / 读文件确认状态再决定写入方式。本节以 `cat >>` 追加，未破坏对方内容。
+
+## 四点十四、主理人第五次未核实即传播（23:20）
+
+qa-reviewer 第五次提交更正，三处**全部核实属实**。这次第1 条性质最严重。
+
+### 更正一：表扬了一个不存在的产出
+
+主理人写「qa-reviewer 选择显式抛错而非静默 print 通过、在 `pyproject.toml` 和 README 补迁移说明——这个选择正确」。
+
+**`test_gate.py` 在 git 全历史中从未存在**，上述两件事没有发生。根因：**并发会话的错乱信息污染上下文，主理人按错误前提写了表扬**——与第四次（把「XFF 这一个头没问题」推广为「IP 类头没问题」）同源，且连续两次。
+
+危害：若该记录进项目史，后人会去找一个不存在的文件，**然后怀疑自己是否漏了什么**。
+
+已撤销两处记录 + 改掉误导性小节标题，并补记「**`test_gate.py` 不存在，请勿寻找**」这一否定信息——让人不必重新考古一遍。
+
+**补充核查**：`main` 上亦无根级 `pyproject.toml`（`git ls-tree` 为空，只有各服务自己的），故「在 pyproject.toml 补说明」同样不成立。
+
+### 更正二：守卫函数名用了改之前的旧名
+
+主理人称`test_agreement_required_on_all_login_channels`，实际（`tests/contracts/test_arch_guards.py`）已是 L387 `test_login_paths_agreement_consistency`——**已按裁决改名，主理人仍在用旧名**。
+
+### 更正三：`uv sync` 说错了
+
+实际是 `uv pip install -e ".[dev]"`（editable，`README.md:67`），`uv sync` 仅在有 `uv.lock` 时适用。qa-reviewer **按实测步骤写入并注明来源，未照抄传话**。
+
+### qa-reviewer 超出派单要求的产出（值得记入团队规范）
+
+主理人原建议「端点清单做显式常量 + 注释新增通道需登记」。实际做了三件超出：
+
+1. 拆两个清单：`AGREEMENT_BEARING_LOGIN_ENDPOINTS` + `NON_LOGIN_ENDPOINTS`（每条注明**排除理由**）——区分「没登记」（遗漏）与「登记了但审阅后排除」（审阅结论，语义不同）
+2. **L347 `test_login_endpoint_inventory_is_complete` 反向兜底** —— 何约新增 OAuth 通道忘登记时守卫 FAIL
+3. 实测注入 `/auth/oauth/callback` 验证被抓出
+
+第 2 点触及守卫类测试的元问题，qa-reviewer 原话：
+
+> 「没有这条，清单本身就成了新的漏检源——漏检恰恰是这守卫存在的理由，却出现在它自己身上。」
+
+**这句话应作为团队规范**：任何「白名单/清单型」守卫，都必须配一条「清单完整性」反向守卫，否则清单本身就是新的漏检源。
+
+### GAP-CONTRACT-005 已核实成立
+
+model-proxy `domain/errors.py`：`TenantContextError.client_status = 400`（客户端错误语义）；T-008 网关对同一情况返 **500**。同一业务错误两种语义——5xx 污染错误率 SLO 告警，故障时从告警里看不出来。
+
+### T-016 归并方案（已定）
+
+| 项 | 归并 | 理由 |
+|---|---|---|
+| GAP-004（协议勾选跨通道不一致）+ GAP-006（身份头未契约化）+ **Authorization 头未剥离** | 合并为**「身份头与协议约束契约化」** | 根因同为「契约没定义，各服务各自口头约定」，何约一次处理 |
+| GAP-005（跨服务错误码不一致） | **独立** | 属错误码语义一致性，不属身份头问题，合并会让处置路径复杂 |
+| GAP-002/003 | 保持 | 已知且已排序 |
+
+**Authorization 头未剥离**（qa-reviewer 主动发现，超出其工单范围）：`httputil.ReverseProxy` 默认原样转发所有头，`routing.go`/`proxy.go` 全文检索 `Authorization` 零命中。后果是**鉴权双重入口**——网关已裁决凭证状态，下游又按自己判断来；若下游误信客户端 `Authorization`，等于绕过网关鉴权。
