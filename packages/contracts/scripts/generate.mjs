@@ -24,7 +24,8 @@ const jobs = {
     run(`npx -y @redocly/cli bundle ./openapi/console-api.yaml -o ${BUNDLE_DIR}/console-api.yaml`);
     // --overwrite：否则二次运行会撞「Directory already exists」直接失败。
     // 输出到 src/ 而非包根，避免连人写的 README.md 一起删掉。
-    run(`uvx openapi-python-client generate --path ${BUNDLE_DIR}/console-api.yaml --output-path ../sdk-py/src --overwrite`);
+    // --config：覆盖默认包名（info.title 含中文，Python 标识符必须 ASCII 安全）。
+    run(`uvx openapi-python-client generate --path ${BUNDLE_DIR}/console-api.yaml --output-path ../sdk-py/src --overwrite --config ./scripts/openapi-python-client.config.yaml`);
   },
 };
 

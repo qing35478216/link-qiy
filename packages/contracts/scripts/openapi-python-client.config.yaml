@@ -1,0 +1,5 @@
+# openapi-python-client 生成配置（铁律 8 选型见 ADOPTED-TOOLS.md）
+# 默认包名取自 OpenAPI info.title（含中文「管理面」），Python 标识符含非 ASCII 虽可导入，
+# 但破坏工具链兼容（mypy/ruff/pyinstaller/部分文件系统）——一律覆盖为 ASCII 安全名。
+package_name_override: link_ai_console
+project_name_override: link-ai-console-client
