@@ -1,0 +1,32 @@
+{
+  "name": "@linkai/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LinkAI 控制台通用组件库（docs/04 2.3 节 18 组件 + 2.2 节 Design Token），源码直消费，禁止手写契约类型",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/styles/tokens.css"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "peerDependencies": {
+    "element-plus": "^2.9.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/test-utils": "^2.4.6",
+    "element-plus": "^2.9.5",
+    "jsdom": "^25.0.1",
+    "typescript": "~5.7.2",
+    "vitest": "^3.0.5",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.0"
+  }
+}
