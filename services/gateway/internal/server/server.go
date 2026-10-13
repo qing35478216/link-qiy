@@ -149,8 +149,21 @@ func buildAuth(cfg *config.Config, store apikey.Store) (*auth.Middleware, error)
 func buildRateLimit(cfg *config.Config) (*ratelimit.Middleware, error) {
 	reg := ratelimit.NewPolicyRegistry()
 
+	// 收集所有启用维度的窗口，取最大值作为键回收时间的下界。
+	// tokenbucket 断言 entryTTL > 各窗口，否则键在窗口内被回收会重置配额。
+	maxWindow := cfg.TenantWindow
+	if cfg.KeyRate > 0 && cfg.KeyWindow > maxWindow {
+		maxWindow = cfg.KeyWindow
+	}
+	if cfg.EndpointRate > 0 && cfg.EndpointWindow > maxWindow {
+		maxWindow = cfg.EndpointWindow
+	}
+
+	// tenantOpts 组装各维度共用的桶选项。
+	tenantOpts := tokenbucketOptions(cfg.EntryTTL, maxWindow)
+
 	// 租户级：始终启用，是多租户平台的兜底闸门。
-	tenantBucket := tokenbucket.New()
+	tenantBucket := tokenbucket.New(tenantOpts...)
 	if err := reg.Register(ratelimit.Policy{
 		Dimension: ratelimit.DimensionTenant,
 		Budget:    ratelimit.Budget{Limit: cfg.TenantRate, Window: cfg.TenantWindow},
@@ -161,7 +174,7 @@ func buildRateLimit(cfg *config.Config) (*ratelimit.Middleware, error) {
 
 	// 凭证级：防止单个 Key 打满整个租户配额。
 	if cfg.KeyRate > 0 {
-		keyBucket := tokenbucket.New()
+		keyBucket := tokenbucket.New(tenantOpts...)
 		if err := reg.Register(ratelimit.Policy{
 			Dimension: ratelimit.DimensionKey,
 			Budget:    ratelimit.Budget{Limit: cfg.KeyRate, Window: cfg.KeyWindow},
@@ -173,7 +186,7 @@ func buildRateLimit(cfg *config.Config) (*ratelimit.Middleware, error) {
 
 	// 端点级：防止单个重接口（如对话）被刷。
 	if cfg.EndpointRate > 0 {
-		endpointBucket := tokenbucket.New()
+		endpointBucket := tokenbucket.New(tenantOpts...)
 		if err := reg.Register(ratelimit.Policy{
 			Dimension: ratelimit.DimensionEndpoint,
 			Budget:    ratelimit.Budget{Limit: cfg.EndpointRate, Window: cfg.EndpointWindow},
@@ -184,6 +197,19 @@ func buildRateLimit(cfg *config.Config) (*ratelimit.Middleware, error) {
 	}
 
 	return ratelimit.NewMiddleware(reg, nil), nil
+}
+
+// tokenbucketOptions 组装令牌桶选项，保证 entryTTL 严格大于所有限流窗口。
+//
+// 若配置的 entryTTL 不满足该不变量，自动上调到 maxWindow 的 2 倍——
+// 宁可多占一点内存（键多活一会儿），也不接受"键被提前回收 → 配额重置"
+// 这个绕过面。配置本身非法时由调用方在 Validate 里拦下。
+func tokenbucketOptions(cfgTTL, maxWindow time.Duration) []tokenbucket.Option {
+	ttl := cfgTTL
+	if ttl <= maxWindow {
+		ttl = maxWindow * 2
+	}
+	return []tokenbucket.Option{tokenbucket.WithEntryTTL(ttl)}
 }
 
 // buildCORS 装配三组独立跨域策略。

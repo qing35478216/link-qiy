@@ -41,6 +41,9 @@ type Config struct {
 	EndpointRate int
 	// EndpointWindow 端点级限流窗口。
 	EndpointWindow time.Duration
+	// EntryTTL 限流键的空闲回收时间，必须大于所有限流窗口。
+	// 0 表示由装配层按窗口自动推导（取最大窗口的 2 倍）。
+	EntryTTL time.Duration
 
 	// CORSConsoleOrigins 控制台允许来源，逗号分隔。
 	CORSConsoleOrigins []string
@@ -152,10 +155,31 @@ func (c *Config) Validate() error {
 	if c.EndpointRate < 0 || c.EndpointRate > 0 && c.EndpointWindow <= 0 {
 		return errors.New("endpoint rate limit window must be positive when rate > 0")
 	}
+	// 键回收时间必须长于所有窗口，否则键在窗口内被回收 → 拿到新满桶 → 配额重置。
+	if c.EntryTTL < 0 {
+		return errors.New("entry TTL must not be negative")
+	}
+	if ttl := c.maxWindow(); c.EntryTTL > 0 && c.EntryTTL <= ttl {
+		return fmt.Errorf("entry TTL (%v) must be greater than the longest rate limit window (%v); "+
+			"otherwise idle keys get reclaimed mid-window and quotas reset",
+			c.EntryTTL, ttl)
+	}
 	if len(c.Upstreams) == 0 {
 		return errors.New("at least one upstream is required")
 	}
 	return nil
+}
+
+// maxWindow 返回所有启用维度的最长窗口。
+func (c *Config) maxWindow() time.Duration {
+	max := c.TenantWindow
+	if c.KeyRate > 0 && c.KeyWindow > max {
+		max = c.KeyWindow
+	}
+	if c.EndpointRate > 0 && c.EndpointWindow > max {
+		max = c.EndpointWindow
+	}
+	return max
 }
 
 // envOr 读字符串环境变量，为空时用默认值。

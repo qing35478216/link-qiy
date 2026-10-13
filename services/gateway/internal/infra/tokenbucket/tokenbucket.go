@@ -6,6 +6,7 @@
 package tokenbucket
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -56,6 +57,11 @@ func WithBurstRatio(r float64) Option {
 }
 
 // WithEntryTTL 设置空闲键回收时间，默认 10 分钟。
+//
+// 必须严格大于所有限流窗口，否则会开出绕过面：
+// 键在窗口内被回收 → 下次访问得到全新满桶 → 配额被重置。
+// 单看限流器无法判断（窗口由调用方按维度传入），故在 Allow 里
+// 断言这个不变量，见 Allow 对 budget.Window 的校验。
 func WithEntryTTL(d time.Duration) Option {
 	return func(l *Limiter) {
 		if d > 0 {
@@ -96,6 +102,19 @@ func New(opts ...Option) *Limiter {
 func (l *Limiter) Allow(key string, budget ratelimit.Budget) (ratelimit.Decision, error) {
 	if err := budget.Validate(); err != nil {
 		return ratelimit.Decision{}, err
+	}
+
+	// 不变量：键的回收时间必须长于限流窗口。
+	//
+	// 否则键会在窗口尚未结束时被回收，下次访问拿到全新满桶，
+	// 配额被重置——等于开出一个"每闲置一轮就白送一份配额"的绕过面。
+	// 默认 entryTTL=10min > 默认窗口=1min，但配置可改，
+	// 所以这里硬断言，不靠"默认值恰好正确"。
+	if l.entryTTL <= budget.Window {
+		return ratelimit.Decision{}, fmt.Errorf(
+			"tokenbucket: entryTTL(%v) 必须大于限流窗口(%v)，否则键回收会重置配额并形成绕过；"+
+				"请调大 entryTTL 或调小限流窗口",
+			l.entryTTL, budget.Window)
 	}
 
 	perSecond := rate.Limit(float64(budget.Limit) / budget.Window.Seconds())
