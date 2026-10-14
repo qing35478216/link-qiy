@@ -1,5 +1,26 @@
 # 契约变更日志
 
+## v0.1.3（2026-10-14，调试窗端点补齐，工单 T-017）
+
+> 版本顺序说明：v0.1.2 为 T-016 微信协议门修复（分支 fix/contract-v0.1.2，console-api 0.1.1→0.1.2）；本条目为契约包 v0.1.3，两分支合并后即形成连续序列。
+
+来源：runtime-engineer T-004 交付时上报——对话引擎执行链已落库可回放，但 service-api 缺调试窗读端点，前端调试抽屉无契约可依。
+
+**追加式端点（oasdiff 验证零 breaking）**：
+- `service-api.yaml` 新增 `GET /v1/conversations`——会话列表（cursor 分页风格同 console-api：limit + cursor + nextCursor；按更新时间倒序）
+- `service-api.yaml` 新增 `GET /v1/conversations/{conversationId}/events`——执行链事件回放（cursor 分页；元素为 `runtime-events.yaml` 的 `RuntimeEvent` 联合，含全部七类事件；可选 `traceId` 查询参数收窄到单次请求的执行链）
+- 多租户经 API Key 归属限定（调用方不传 tenant）；跨租户/不存在会话 404 不暴露存在性
+- 新增 `Conversation` schema；两个新端点均声明 401/404（events）/500 与 requestId 排障字段
+- service-api 0.1.1 → 0.1.2；新增 `Conversations` tag（tag 列表改按字母序，spectral 规则要求）
+
+**配套收紧**：
+- `runtime-events.yaml` 七个事件 schema 的 `data` 升为 required（原为可选，生成 SDK 中事件负载全部可选、消费侧被迫写可选链）——纯预发布收紧，oasdiff 零 breaking；runtime-events 0.1.1 → 0.1.2
+- `orval.config.ts` service 项目放行 `./runtime-events.yaml` 外部 $ref（orval v8 默认禁止，不放行则生成直接失败）
+
+**SDK 同步**：`npm run generate` 重跑——sdk-ts 新增 `listConversations` / `listConversationEvents` 客户端方法、`Conversation` 及 RuntimeEvent 联合全部事件类型模型；sdk-py 不变（console-only 生成范围，T-001-sdk 决议）。
+
+**下游注意**：runtime-engineer 需按本契约实现两端点（会话列表查询 + 事件序列查询，tenant 由 Key 归属限定）；前端调试抽屉消费 `@linkai/sdk-ts` 的 `getLinkAIServiceAPIOpenAI().listConversations/ listConversationEvents`。
+
 ## v0.1.1（2026-10-13，严明复审后修复，主理人代管——何约配额耗尽）
 
 来源：qa-reviewer 合并后复审（门禁 3 PASS + 3 PARTIAL，3 BLOCKING + 11 NON-BLOCKING，工单 T-014）。

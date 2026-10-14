@@ -2,18 +2,21 @@ openapi: 3.1.0
 info:
   title: LinkAI Service API（用户面，OpenAI 兼容）
   description: |
-    对外 OpenAI 兼容接口 v0.1.1（嵌入 SDK / 渠道 / 第三方工具统一走此面）。
+    对外 OpenAI 兼容接口 v0.1.2（嵌入 SDK / 渠道 / 第三方工具统一走此面）。
     鉴权：用户 API Key（Bearer）。多租户由 Key 归属解析，调用方不传 tenant。
     流式：POST /v1/chat/completions 显式传 stream=true 时返回 text/event-stream，
     事件协议见 runtime-events.yaml（node_started / message_chunk / tool_called / thought / error / human_input_required / done）；
     done 为正常终局事件（携带 usage 与 finishReason）。
-  version: 0.1.1
+    调试窗（v0.1.2 新增）：GET /v1/conversations 会话列表 + GET /v1/conversations/{conversationId}/events 执行链事件回放
+    （cursor 分页风格同 console-api；事件元素为 runtime-events.yaml 的 RuntimeEvent 联合）。
+  version: 0.1.2
 servers:
   - url: /v1
 tags:
-  - name: Chat
-  - name: Models
   - name: ApiKeys
+  - name: Chat
+  - name: Conversations
+  - name: Models
 paths:
   /chat/completions:
     post:
@@ -38,6 +41,88 @@ paths:
                 description: SSE 事件序列，每个事件 data 为 runtime-events.yaml 中定义的事件 JSON
         '429':
           description: 配额/积分不足
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Error' }
+  /conversations:
+    get:
+      tags: [Conversations]
+      summary: 会话列表（调试窗，cursor 分页）
+      operationId: listConversations
+      security: [{ apiKeyAuth: [] }]
+      description: |
+        当前 API Key 所属租户下的会话列表，按更新时间倒序。cursor 分页风格与 console-api 一致
+        （limit + cursor，响应 nextCursor 为空表示无更多）。调试窗用；不暴露其他租户数据。
+      parameters:
+        - { $ref: '../schemas/common.yaml#/CursorParam' }
+        - { $ref: '../schemas/common.yaml#/LimitParam' }
+      responses:
+        '200':
+          description: 会话分页列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor, requestId]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Conversation' }
+                  nextCursor: { type: string, nullable: true, description: 空串/null 表示无更多 }
+                  requestId: { type: string, description: 链路追踪 ID（排障用） }
+        '401':
+          description: API Key 缺失/无效
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Error' }
+        '500':
+          description: 服务端内部错误
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Error' }
+  /conversations/{conversationId}/events:
+    get:
+      tags: [Conversations]
+      summary: 执行链事件回放（调试窗，cursor 分页）
+      operationId: listConversationEvents
+      security: [{ apiKeyAuth: [] }]
+      description: |
+        会话的执行链事件序列（乱序重放兜底：按 ts 正序 + message_chunk 的 data.seq 排序）。
+        事件元素为 runtime-events.yaml 的 RuntimeEvent 联合（node_started / message_chunk /
+        tool_called / thought / error / human_input_required / done），done 为正常终局。
+        传 traceId 可收窄为单条执行链（某一次对话请求的完整回放）。
+        跨租户或不存在的会话返回 404（不暴露存在性）。
+      parameters:
+        - { name: conversationId, in: path, required: true, schema: { type: string }, description: 会话 ID }
+        - { name: traceId, in: query, required: false, schema: { type: string }, description: 可选——收窄到单次请求的执行链 }
+        - { $ref: '../schemas/common.yaml#/CursorParam' }
+        - { $ref: '../schemas/common.yaml#/LimitParam' }
+      responses:
+        '200':
+          description: 事件分页列表（按 ts 正序）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor, requestId]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: './runtime-events.yaml#/components/schemas/RuntimeEvent' }
+                  nextCursor: { type: string, nullable: true, description: 空串/null 表示无更多 }
+                  requestId: { type: string, description: 链路追踪 ID（排障用） }
+        '401':
+          description: API Key 缺失/无效
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Error' }
+        '404':
+          description: 会话不存在或跨租户（不暴露存在性）
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Error' }
+        '500':
+          description: 服务端内部错误
           content:
             application/json:
               schema: { $ref: '../schemas/common.yaml#/Error' }
@@ -124,6 +209,18 @@ components:
         content: { type: string }
         name: { type: string, description: role=tool 时的插件名 }
         toolCallId: { type: string }
+    Conversation:
+      type: object
+      description: 会话（调试窗列表项）。多租户由 API Key 归属限定，仅返回本租户会话。
+      required: [id, messageCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, description: 会话 ID（chat/completions 的 conversationId 续聊同一会话） }
+        appCode: { type: string, nullable: true, description: 关联应用编码 }
+        title: { type: string, nullable: true, description: 会话标题（服务端按首条消息生成） }
+        messageCount: { type: integer, description: 消息条数 }
+        lastTraceId: { type: string, nullable: true, description: 最近一次请求的 trace ID（执行链回放入口） }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     ChatCompletionRequest:
       type: object
       required: [model, messages]

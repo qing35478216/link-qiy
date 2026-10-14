@@ -1,4 +1,4 @@
-# Runtime Event 协议 v0.1.1 —— 所有前端（画布/对话/渠道）与运行时的统一事件源
+# Runtime Event 协议 v0.1.2 —— 所有前端（画布/对话/渠道）与运行时的统一事件源
 # 传输：SSE，每个事件一个 data 帧，内容为下方对应 schema 的 JSON
 # 铁律：事件类型只增不改；新增类型必须同步本文件与全部消费端
 # 流式结束约定（v0.1.1）：done 事件为正常终局（携带 usage/finishReason）；
@@ -6,7 +6,7 @@
 openapi: 3.1.0
 info:
   title: LinkAI Runtime Events（SSE 事件协议）
-  version: 0.1.1
+  version: 0.1.2
 components:
   schemas:
     EventEnvelope:
@@ -22,6 +22,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
+          required: [data]
           properties:
             event: { type: string, const: node_started }
             data:
@@ -33,6 +34,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
+          required: [data]
           properties:
             event: { type: string, const: message_chunk }
             data:
@@ -45,6 +47,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
+          required: [data]
           properties:
             event: { type: string, const: tool_called }
             data:
@@ -60,6 +63,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
+          required: [data]
           properties:
             event: { type: string, const: thought }
             data:
@@ -71,6 +75,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
+          required: [data]
           properties:
             event: { type: string, const: done }
             data:
@@ -90,6 +95,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
+          required: [data]
           properties:
             event: { type: string, const: error }
             data:
@@ -103,6 +109,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
+          required: [data]
           properties:
             event: { type: string, const: human_input_required }
             data:

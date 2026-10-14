@@ -22,7 +22,9 @@ export default defineConfig({
   service: {
     input: {
       target: './openapi/service-api.yaml',
-      parserOptions: { externalRefs: { allow: ['../schemas/common.yaml'] } },
+      // T-017：调试窗事件端点 $ref runtime-events.yaml 的 RuntimeEvent 联合，
+      // 与 common.yaml 一并显式放行（orval v8 默认禁外部 $ref）。
+      parserOptions: { externalRefs: { allow: ['../schemas/common.yaml', './runtime-events.yaml'] } },
     },
     output: {
       target: '../sdk-ts/src/service.ts',
