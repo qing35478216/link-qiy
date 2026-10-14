@@ -16,20 +16,28 @@ T = TypeVar("T", bound="CreateWechatQrcodeBody")
 class CreateWechatQrcodeBody:
     """
     Attributes:
+        agreement_accepted (bool):
         scene (CreateWechatQrcodeBodyScene | Unset):  Default: CreateWechatQrcodeBodyScene.LOGIN.
     """
 
+    agreement_accepted: bool
     scene: CreateWechatQrcodeBodyScene | Unset = CreateWechatQrcodeBodyScene.LOGIN
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        agreement_accepted = self.agreement_accepted
+
         scene: str | Unset = UNSET
         if not isinstance(self.scene, Unset):
             scene = self.scene.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
+        field_dict.update(
+            {
+                "agreementAccepted": agreement_accepted,
+            }
+        )
         if scene is not UNSET:
             field_dict["scene"] = scene
 
@@ -38,6 +46,8 @@ class CreateWechatQrcodeBody:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        agreement_accepted = d.pop("agreementAccepted")
+
         _scene = d.pop("scene", UNSET)
         scene: CreateWechatQrcodeBodyScene | Unset
         if isinstance(_scene, Unset):
@@ -46,6 +56,7 @@ class CreateWechatQrcodeBody:
             scene = CreateWechatQrcodeBodyScene(_scene)
 
         create_wechat_qrcode_body = cls(
+            agreement_accepted=agreement_accepted,
             scene=scene,
         )
 

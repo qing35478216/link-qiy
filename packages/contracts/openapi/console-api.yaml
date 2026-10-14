@@ -2,10 +2,12 @@ openapi: 3.1.0
 info:
   title: LinkAI Console API（管理面）
   description: |
-    Builder 控制台管理面契约 v0.1.1。
+    Builder 控制台管理面契约 v0.1.2。
     多租户：除登录/注册类端点外，所有端点要求 `X-Tenant-Id` 请求头（平台在网关解析 JWT 后注入，控制台前端透传）。
     分页：列表统一 cursor 分页（limit + cursor，响应含 nextCursor，空表示无更多）。
-  version: 0.1.1
+    合规（v0.1.2）：全部登录通道（手机号 / 微信扫码）创建登录会话时强制勾选协议（agreementAccepted）；
+    微信 confirmed 分支仅对创建时已勾选协议的会话下发令牌——未勾选的需重新发起并勾选。
+  version: 0.1.2
 servers:
   - url: /api/console/v1
 tags:
@@ -21,13 +23,16 @@ paths:
       operationId: createWechatQrcode
       security: []
       x-public: true
+      description: 发起微信扫码登录会话。合规约束（与手机号登录同构）：创建时必须勾选协议，false 返回 403 AGREEMENT_NOT_ACCEPTED
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [agreementAccepted]
               properties:
+                agreementAccepted: { type: boolean }
                 scene: { type: string, enum: [login, bind], default: login }
       responses:
         '200':
@@ -41,6 +46,11 @@ paths:
                   ticket: { type: string }
                   qrUrl: { type: string, format: uri }
                   expiresAt: { type: string, format: date-time }
+        '403':
+          description: 未勾选协议（AGREEMENT_NOT_ACCEPTED）
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Error' }
   /auth/wechat/qrcode/{ticket}:
     get:
       tags: [Auth]
@@ -48,6 +58,9 @@ paths:
       operationId: getWechatQrcodeStatus
       security: []
       x-public: true
+      description: |
+        轮询扫码状态。协议门（v0.1.2）：confirmed 仅在创建会话时已勾选协议的前提下携带 tokens；
+        创建时未勾选的会话被扫后，confirmed 分支返回 403 AGREEMENT_NOT_ACCEPTED——前端需引导用户重新发起扫码并勾选协议。
       parameters:
         - { name: ticket, in: path, required: true, schema: { type: string } }
       responses:
@@ -61,6 +74,11 @@ paths:
                 properties:
                   status: { type: string, enum: [pending, scanned, confirmed, expired] }
                   tokens: { $ref: '../schemas/common.yaml#/TokenPair' }
+        '403':
+          description: 创建会话时未勾选协议，拒绝下发令牌（AGREEMENT_NOT_ACCEPTED）
+          content:
+            application/json:
+              schema: { $ref: '../schemas/common.yaml#/Error' }
   /auth/phone/sms-code:
     post:
       tags: [Auth]

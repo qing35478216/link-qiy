@@ -1,5 +1,19 @@
 # 契约变更日志
 
+## v0.1.2（2026-10-13，合规修复——微信扫码通道补协议签署约束）
+
+来源：qa-reviewer 发现 GAP-CONTRACT-004（工单 T-016，主理人独立核实并上调严重性）。仅 `openapi/console-api.yaml` 变更，版本 0.1.1 → 0.1.2；service-api / runtime-events 不动。
+
+**合规修复（合规事故级）**：
+- `POST /auth/wechat/qrcode` 请求体新增 `agreementAccepted`（required boolean），与 `loginByPhone` 完全同构；false 返回 403 `AGREEMENT_NOT_ACCEPTED`
+- `GET /auth/wechat/qrcode/{ticket}` 协议门：confirmed 分支仅对创建会话时已勾选协议的请求下发 TokenPair；未勾选会话被扫后返回 403 `AGREEMENT_NOT_ACCEPTED`，需重新发起并勾选
+- `/auth/refresh` 不动——刷新不是登录通道，不重签协议
+- info.description 增补登录通道协议约束总述
+
+**兼容性说明**：新增 required 请求字段对预发布契约（无外部消费者）属兼容性变更；契约先行纪律下实现侧（services/platform 微信 MockProvider）须同版本落地协议门。
+
+**SDK 同步**：`npm run generate` 重跑，sdk-ts/sdk-py 生成物随本版本更新。
+
 ## v0.1.1（2026-10-13，严明复审后修复，主理人代管——何约配额耗尽）
 
 来源：qa-reviewer 合并后复审（门禁 3 PASS + 3 PARTIAL，3 BLOCKING + 11 NON-BLOCKING，工单 T-014）。

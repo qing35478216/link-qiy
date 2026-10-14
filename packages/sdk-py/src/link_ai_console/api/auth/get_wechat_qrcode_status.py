@@ -6,6 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.error import Error
 from ...models.get_wechat_qrcode_status_response_200 import GetWechatQrcodeStatusResponse200
 from ...types import Response
 
@@ -26,11 +27,16 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> GetWechatQrcodeStatusResponse200 | None:
+) -> Error | GetWechatQrcodeStatusResponse200 | None:
     if response.status_code == 200:
         response_200 = GetWechatQrcodeStatusResponse200.from_dict(response.json())
 
         return response_200
+
+    if response.status_code == 403:
+        response_403 = Error.from_dict(response.json())
+
+        return response_403
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
@@ -40,7 +46,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[GetWechatQrcodeStatusResponse200]:
+) -> Response[Error | GetWechatQrcodeStatusResponse200]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -53,8 +59,11 @@ def sync_detailed(
     ticket: str,
     *,
     client: AuthenticatedClient | Client,
-) -> Response[GetWechatQrcodeStatusResponse200]:
+) -> Response[Error | GetWechatQrcodeStatusResponse200]:
     """轮询扫码状态
+
+     轮询扫码状态。协议门（v0.1.2）：confirmed 仅在创建会话时已勾选协议的前提下携带 tokens；
+    创建时未勾选的会话被扫后，confirmed 分支返回 403 AGREEMENT_NOT_ACCEPTED——前端需引导用户重新发起扫码并勾选协议。
 
     Args:
         ticket (str):
@@ -64,7 +73,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[GetWechatQrcodeStatusResponse200]
+        Response[Error | GetWechatQrcodeStatusResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -82,8 +91,11 @@ def sync(
     ticket: str,
     *,
     client: AuthenticatedClient | Client,
-) -> GetWechatQrcodeStatusResponse200 | None:
+) -> Error | GetWechatQrcodeStatusResponse200 | None:
     """轮询扫码状态
+
+     轮询扫码状态。协议门（v0.1.2）：confirmed 仅在创建会话时已勾选协议的前提下携带 tokens；
+    创建时未勾选的会话被扫后，confirmed 分支返回 403 AGREEMENT_NOT_ACCEPTED——前端需引导用户重新发起扫码并勾选协议。
 
     Args:
         ticket (str):
@@ -93,7 +105,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        GetWechatQrcodeStatusResponse200
+        Error | GetWechatQrcodeStatusResponse200
     """
 
     return sync_detailed(
@@ -106,8 +118,11 @@ async def asyncio_detailed(
     ticket: str,
     *,
     client: AuthenticatedClient | Client,
-) -> Response[GetWechatQrcodeStatusResponse200]:
+) -> Response[Error | GetWechatQrcodeStatusResponse200]:
     """轮询扫码状态
+
+     轮询扫码状态。协议门（v0.1.2）：confirmed 仅在创建会话时已勾选协议的前提下携带 tokens；
+    创建时未勾选的会话被扫后，confirmed 分支返回 403 AGREEMENT_NOT_ACCEPTED——前端需引导用户重新发起扫码并勾选协议。
 
     Args:
         ticket (str):
@@ -117,7 +132,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[GetWechatQrcodeStatusResponse200]
+        Response[Error | GetWechatQrcodeStatusResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -133,8 +148,11 @@ async def asyncio(
     ticket: str,
     *,
     client: AuthenticatedClient | Client,
-) -> GetWechatQrcodeStatusResponse200 | None:
+) -> Error | GetWechatQrcodeStatusResponse200 | None:
     """轮询扫码状态
+
+     轮询扫码状态。协议门（v0.1.2）：confirmed 仅在创建会话时已勾选协议的前提下携带 tokens；
+    创建时未勾选的会话被扫后，confirmed 分支返回 403 AGREEMENT_NOT_ACCEPTED——前端需引导用户重新发起扫码并勾选协议。
 
     Args:
         ticket (str):
@@ -144,7 +162,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        GetWechatQrcodeStatusResponse200
+        Error | GetWechatQrcodeStatusResponse200
     """
 
     return (
