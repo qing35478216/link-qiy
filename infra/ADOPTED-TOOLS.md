@@ -33,3 +33,55 @@
 ## 后续工单选型时需沿用本表格式补录
 
 向量库正式选型（Milvus/Qdrant/pgvector 对比表）、工作流引擎内核、插件 gRPC 框架、前端画布（React Flow/tldraw）等——在对应工单 PR 中补对比表，并回写本文件。
+
+---
+
+## ADR-002：管理后台（console）Web 框架 FastAPI → Flask（supersede ADR-001）
+
+| 项 | 内容 |
+|---|---|
+| 日期 | 2026-10-14 |
+| 决策人 | 甲方（用户）直接指定，非技术推导 |
+| 状态 | **已生效，但范围限定**（见下） |
+| supersede | docs/03 第 157 行 ADR-001「Web 框架：Flask + RESTX → **FastAPI**」 |
+
+### 背景
+
+甲方要求「安装 flask，先用 flask 构建想用的东西——做个和 linkai 一样 code 方式的同步管理后台」。
+按 AGENTS.md「架构变更：偏离三份设计文档的决策，人类必须批」，此处为甲方明确决策，留痕备查。
+
+### 决策内容
+
+**管理后台（console）原型采用 Flask 同步技术栈**，对齐 LinkAI 对标物（Dify）的实现方式：
+
+| 层 | 选型 | 说明 |
+|---|---|---|
+| Web 框架 | Flask 3.1 + **flask-restx** 1.3 | 同步模型；RESTX 提供 `/doc` Swagger UI 与 `/api/**` 双通道 |
+| 模板 | Jinja2 服务端渲染 | 管理后台表单密集型页面，SSR 比 SPA 少一层构建 |
+| ORM | SQLAlchemy 2.x + flask-sqlalchemy | 与主仓 services/ 的 SQLAlchemy 选型一致，后续可平移 |
+| 数据库 | PostgreSQL 16（colima 容器，pgvector 0.8.7） | 复用 docker-compose.yml |
+| 会话 | flask-login + werkzeug 密码哈希 | 原型期免去 JWT 复杂度 |
+
+### 范围限定（重要）
+
+本决策**只覆盖 `prototypes/flask-app/`（原型沙箱）**，不改动已建成的
+`services/platform`、`services/runtime`（仍为 FastAPI，四层架构 + 测试 + alembic 不变）。
+
+理由：
+1. 热路径（流式对话、SSE）仍需 FastAPI 异步，ADR-001 的技术理由依然成立
+2. 管理后台是表单密集的 CRUD，同步模型足够且开发更快——这是甲方的真实使用场景
+3. 避免为一个原型推翻已建成的两个服务
+
+### 后续路径
+
+若原型验证满意，需再决策是否把 `services/platform` 也迁到 Flask：
+- 若是 → 补 ADR-003 全量 supersede ADR-001，并评估 platform 已有 FastAPI 代码的迁移成本
+- 若否 → 本 ADR-002 即为终态，原型代码按 docs/03 规范重写进 services/
+
+### 候选对比（补齐铁律 8 要求的格式）
+
+| 候选 | 同步支持 | 维护活跃度 | 许可证 | 技术栈匹配 | 结论 |
+|---|---|---|---|---|---|
+| **Flask + RESTX** | 原生同步 | 活跃（RESTX 1.3.2 / 2024） | BSD-3 | **与 LinkAI 对标物（Dify）同款**；Jinja2 SSR 适合表单密集后台 | ✅ 选定 |
+| FastAPI | 支持同步但为异步设计 | 非常活跃 | MIT | 主仓 services/ 在用 | 维持（热路径服务） |
+| Django + DRF | 同步 | 活跃 | BSD-3 | 自带 admin/ORM/Auth，但过重，与四层架构冲突 | 弃 |

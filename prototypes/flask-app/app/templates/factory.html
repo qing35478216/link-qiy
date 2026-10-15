@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}应用工厂 · LinkAI 原型{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>创造</h1>
+  <button class="primary" onclick="document.getElementById('create-dialog').showModal()">+ 创建应用</button>
+</div>
+
+{% if apps %}
+<div class="app-grid">
+  {% for app in apps %}
+  <div class="app-card">
+    <div class="app-card-head">
+      <span class="avatar">{{ app.name[:1] }}</span>
+      <div>
+        <div class="app-name">{{ app.name }}</div>
+        <div class="app-code">code: {{ app.code }}</div>
+      </div>
+      <span class="tag {{ 'tag-kb' if app.type == 'knowledge' else 'tag-lw' }}">{{ app.type_label }}</span>
+    </div>
+    <p class="app-desc">{{ app.description or '暂无描述' }}</p>
+    <div class="app-actions">
+      <a class="btn primary sm" href="{{ url_for('pages.agent_chat', code=app.code) }}">开始对话</a>
+      <a class="btn sm" href="{{ url_for('pages.agent_config', code=app.code) }}">设置</a>
+      <span class="muted sm">分享 /app/{{ app.code }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  <p>还没有应用。点右上角「创建应用」开始——</p>
+  <p class="muted sm">轻量应用：一段提示词快速创建；知识应用：私有数据定制问答。</p>
+</div>
+{% endif %}
+
+{# 创建弹窗：两个大卡片（对齐截图基准的选中态 2px 蓝框） #}
+<dialog id="create-dialog" class="create-dialog">
+  <h2>创建应用</h2>
+  <form method="post" action="{{ url_for('pages.factory_create') }}">
+    <label class="type-pick">
+      <input type="radio" name="type" value="lightweight" checked>
+      <span>
+        <strong>轻量应用</strong>
+        <em>一段提示词快速创建</em>
+      </span>
+    </label>
+    <label class="type-pick">
+      <input type="radio" name="type" value="knowledge">
+      <span>
+        <strong>知识应用</strong>
+        <em>私有数据定制问答</em>
+      </span>
+    </label>
+    <label class="field">应用名称
+      <input type="text" name="name" placeholder="例如：八字算命助手" required>
+    </label>
+    <div class="dialog-actions">
+      <button type="button" class="btn" onclick="document.getElementById('create-dialog').close()">取消</button>
+      <button type="submit" class="btn primary">创建</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}

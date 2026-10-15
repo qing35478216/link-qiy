@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ app.name }} · 配置 · LinkAI 原型{% endblock %}
+{% block content %}
+<div class="config-head">
+  <a class="back" href="{{ url_for('pages.factory') }}">← 返回列表</a>
+  <h1>{{ app.name }}</h1>
+  <div class="tabs">
+    <span class="tab active">基础配置</span>
+    <span class="tab disabled">限流配置</span>
+    <span class="tab disabled">高级配置</span>
+    <a class="tab" href="{{ url_for('pages.agent_chat', code=app.code) }}">调试</a>
+  </div>
+</div>
+
+{% if request.args.get('saved') %}<div class="flash ok">已保存</div>{% endif %}
+
+<form method="post" action="{{ url_for('pages.agent_save') }}" class="config-form">
+  <input type="hidden" name="code" value="{{ app.code }}">
+
+  <section class="card">
+    <h2>基础信息</h2>
+    <div class="grid2">
+      <label class="field">应用名称
+        <input type="text" name="name" value="{{ app.name }}" required>
+      </label>
+      <label class="field">应用 code
+        <input type="text" value="{{ app.code }}" disabled>
+      </label>
+    </div>
+    <div class="grid2">
+      <label class="field">应用类型
+        <select name="type">
+          <option value="lightweight" {{ 'selected' if app.type == 'lightweight' }}>轻量应用</option>
+          <option value="knowledge" {{ 'selected' if app.type == 'knowledge' }}>知识应用</option>
+        </select>
+      </label>
+      <label class="field">应用头像
+        <input type="text" value="{{ app.name[:1] }}" disabled title="原型期取名称首字">
+      </label>
+    </div>
+    <label class="field">应用描述
+      <input type="text" name="description" value="{{ app.description }}" placeholder="一句话说明这个应用">
+    </label>
+    <label class="check">
+      <input type="checkbox" name="is_public" {{ 'checked' if app.is_public }}>
+      是否公开（专属链接 /app/{{ app.code }} 可访问）
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>对话设置</h2>
+    <label class="field">开场介绍
+      <textarea name="opening" rows="2" placeholder="例如：你好，我是八字算命助手，请问你的生辰八字是?">{{ app.opening }}</textarea>
+    </label>
+    <label class="field">问题推荐（一行一个预设问题）
+      <textarea name="questions" rows="4" placeholder="[甲申丁丑丁巳壬寅，男]&#10;[如何根据八字来看婚姻状况?]">{{ app.questions | join('\n') }}</textarea>
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>模型设置</h2>
+    <div class="grid3">
+      <label class="field">默认模型
+        <select name="model">
+          {% for m in ['DeepSeek-R1', 'GPT-6 Astra', 'DeepSeek-V4-Flash', 'Qwen-Max'] %}
+          <option {{ 'selected' if app.model == m }}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">温度
+        <input type="number" name="temperature" value="{{ app.temperature }}" min="0" max="2" step="0.1">
+      </label>
+      <label class="field">记忆轮数
+        <input type="number" name="memory_turns" value="{{ app.memory_turns }}" min="0" max="50">
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>应用设定（提示词）</h2>
+    <label class="field">
+      <textarea name="prompt" rows="12" class="mono" placeholder="## 角色&#10;你是一位八字算命师……">{{ app.prompt }}</textarea>
+    </label>
+  </section>
+
+  <div class="form-actions">
+    <button type="submit" class="btn primary">保存</button>
+    <a class="btn" href="{{ url_for('pages.agent_chat', code=app.code) }}">去调试</a>
+  </div>
+</form>
+{% endblock %}

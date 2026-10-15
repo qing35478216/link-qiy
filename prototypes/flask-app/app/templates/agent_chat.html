@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}调试 · {{ app.name }} · LinkAI 原型{% endblock %}
+{% block content %}
+<div class="config-head">
+  <a class="back" href="{{ url_for('pages.agent_config', code=app.code) }}">← 返回配置</a>
+  <h1>调试对话 · {{ app.name }}</h1>
+  <span class="muted sm">模型 {{ app.model }} · 温度 {{ app.temperature }}</span>
+</div>
+
+<div class="chat-wrap">
+  <div id="chat-log" class="chat-log">
+    {% if app.opening %}
+    <div class="msg bot"><div class="bubble">{{ app.opening }}</div></div>
+    {% endif %}
+    {% for q in app.questions[:3] %}
+    <div class="msg user"><div class="bubble">{{ q }}</div></div>
+    {% endfor %}
+  </div>
+
+  <div class="chat-presets">
+    {% for q in app.questions %}
+    <button class="preset" onclick="fillPreset(this)">{{ q }}</button>
+    {% endfor %}
+  </div>
+
+  <form id="chat-form" class="chat-input" onsubmit="return sendMsg(event)">
+    <input id="chat-text" type="text" placeholder="输入消息，回车发送" autocomplete="off">
+    <button type="submit" class="btn primary">发送</button>
+  </form>
+  <p class="muted sm">原型期对话为本地回显（不接真实模型）；接 model-proxy 后此处改为流式调用。</p>
+</div>
+
+<script>
+const log = document.getElementById('chat-log');
+
+function fillPreset(btn) {
+  document.getElementById('chat-text').value = btn.textContent;
+  document.getElementById('chat-text').focus();
+}
+
+function append(text, who) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + who;
+  div.innerHTML = '<div class="bubble"></div>';
+  div.querySelector('.bubble').textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function sendMsg(e) {
+  e.preventDefault();
+  const input = document.getElementById('chat-text');
+  const text = input.value.trim();
+  if (!text) return false;
+
+  append(text, 'user');
+  input.value = '';
+
+  // 原型期：回显提示词前 80 字 + 说明，验证链路即可
+  setTimeout(() => {
+    const prompt = {{ app.prompt | tojson }};
+    const preview = prompt ? prompt.slice(0, 80) + (prompt.length > 80 ? '…' : '') : '（未配置应用设定）';
+    append('[原型回显] 已收到：「' + text + '」。当前提示词开头：' + preview, 'bot');
+  }, 200);
+  return false;
+}
+</script>
+{% endblock %}

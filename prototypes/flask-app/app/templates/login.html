@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}登录 · LinkAI 原型{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <h1>登录</h1>
+  <form method="post" action="{{ url_for('auth.login') }}">
+    <label>邮箱<input type="email" name="email" required autofocus></label>
+    <label>密码<input type="password" name="password" required></label>
+    <button type="submit">登录</button>
+  </form>
+  <p class="muted">没有账号？<a href="{{ url_for('auth.register') }}">注册一个</a></p>
+</div>
+{% endblock %}

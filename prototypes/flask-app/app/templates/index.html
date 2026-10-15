@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LinkAI 原型工作台</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="wrap">
+    <h1>LinkAI 原型工作台</h1>
+    <p class="sub">Flask 原型沙箱 · 想法验证满意后按 docs/03 的 ADR 用 FastAPI 落主仓</p>
+
+    <section class="card">
+      <h2>API 自测</h2>
+      <div class="row">
+        <button onclick="checkHealth()">GET /api/health</button>
+        <span id="health-out" class="out"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>丢个想法进来</h2>
+      <div class="row">
+        <input id="idea-input" type="text" placeholder="输入点什么，回车提交">
+        <button onclick="submitIdea()">POST /api/ideas</button>
+      </div>
+      <ul id="idea-list" class="ideas">
+        {% for idea in ideas %}
+        <li>#{{ idea.id }} {{ idea.text }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    async function checkHealth() {
+      const r = await fetch('/api/health');
+      const d = await r.json();
+      document.getElementById('health-out').textContent = JSON.stringify(d);
+    }
+
+    async function submitIdea() {
+      const input = document.getElementById('idea-input');
+      const text = input.value.trim();
+      if (!text) return;
+      const r = await fetch('/api/ideas', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text}),
+      });
+      if (r.ok) location.reload();
+    }
+
+    document.getElementById('idea-input')
+      .addEventListener('keydown', e => { if (e.key === 'Enter') submitIdea(); });
+  </script>
+</body>
+</html>
