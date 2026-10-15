@@ -70,13 +70,48 @@ def settings() -> Settings:
 # —— 文件库（并发用例）：每线程独立 Session，真实写竞争 ——
 
 
+def _make_sqlite_engine(url: str, **kwargs: object) -> Engine:
+    """SQLite 测试引擎（**事务语义对齐 PG 的关键适配**）。
+
+    pysqlite 传统模式下 SAVEPOINT 会自启事务、RELEASE 即提交——这会让
+    `begin_nested()`（幂等写入的 SAVEPOINT）在方法中途就把 ledger INSERT
+    单独提交，"单事务原子扣减"在 SQLite 上形同虚设（已在 T-007-B1 复诊
+    中实证：裸 sqlite3 双连接实验 + SQL echo 时序）。生产 PG（psycopg3）
+    无此问题，但测试必须真实模拟事务语义，否则并发用例证明的是假不变量。
+    适配 = SQLAlchemy 官方 recipe：autocommit + 连接级显式 BEGIN。
+    """
+    from sqlalchemy import event
+
+    engine = create_engine(
+        url,
+        connect_args={"check_same_thread": False, "timeout": 30, "isolation_level": None},
+        pool_pre_ping=True,
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_autocommit(dbapi_connection: object, _record: object) -> None:
+        # 关掉 pysqlite 的隐式 BEGIN（SAVEPOINT 不再自启事务）
+        dbapi_connection.isolation_level = None  # type: ignore[attr-defined]
+        # WAL：读写互不阻塞（PG 式 MVCC）。否则显式 BEGIN 下"读者持 SHARED
+        # 锁挡写者提交、写者持 RESERVED 挡读者升级"会经典死锁（database is
+        # locked 立即失败，busy handler 无法解开）。:memory: 不支持 WAL，
+        # pragma 自动退化为 memory journal（单连接本无竞争）。
+        dbapi_connection.execute("PRAGMA journal_mode=WAL")  # type: ignore[attr-defined]
+        dbapi_connection.execute("PRAGMA busy_timeout=30000")  # type: ignore[attr-defined]
+
+    @event.listens_for(engine, "begin")
+    def _sqlite_begin(connection: object) -> None:
+        # SQLAlchemy 事务开始时显式 BEGIN——SAVEPOINT 此后正确嵌套，
+        # RELEASE 不再隐式提交（对照实验见 tests/services/test_atomic_debit.py）
+        connection.exec_driver_sql("BEGIN")  # type: ignore[attr-defined]
+
+    return engine
+
+
 @pytest.fixture
 def file_engine(tmp_path: Any) -> Iterator[Engine]:
-    engine = create_engine(
-        f"sqlite+pysqlite:///{tmp_path / 'billing.db'}",
-        connect_args={"check_same_thread": False, "timeout": 30},
-        pool_pre_ping=True,
-    )
+    engine = _make_sqlite_engine(f"sqlite+pysqlite:///{tmp_path / 'billing.db'}")
     Base.metadata.create_all(engine)
     yield engine
     engine.dispose()
@@ -92,12 +127,7 @@ def file_session_factory(file_engine: Engine) -> sessionmaker[Session]:
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-        pool_pre_ping=True,
-    )
+    engine = _make_sqlite_engine("sqlite+pysqlite:///:memory:", poolclass=StaticPool)
     Base.metadata.create_all(engine)
     app = create_app(make_settings())
     app.state.session_factory = make_session_factory(engine)

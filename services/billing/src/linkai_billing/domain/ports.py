@@ -39,7 +39,13 @@ class WalletLedger(Protocol):
 
 
 class WalletRepository(Protocol):
-    """钱包读/写（非资金路径：开户、改提醒阈值、plan 同步）。"""
+    """钱包读/写（非资金路径：开户、改提醒阈值、plan 同步）。
+
+    **契约（B1 修复）**：`save()` 只允许变更 plan / reminder_threshold /
+    low_balance_notified_on 三列，**绝不回写 balance**——余额是资金状态，
+    唯一写路径是 `WalletLedger.apply()` 的条件 UPDATE（原子 + 幂等）。
+    整行回放会把并发扣减抹掉（读-改-写丢失更新，资损窗口）。
+    """
 
     def get(self, tenant_id: str) -> CreditWallet | None: ...
 
@@ -135,7 +141,20 @@ class OrderRepository(Protocol):
         self, *, now: datetime, timeout_minutes: int
     ) -> Sequence[RechargeOrder]: ...
 
-    def save(self, order: RechargeOrder) -> None: ...
+    def save(self, order: RechargeOrder, *, expect_status: tuple[OrderStatus, ...]) -> None:
+        """条件保存（N2 修复）：仅当订单行当前状态在 expect_status 内才写回。
+
+        并发保护：rowcount=0 说明状态已被并发方迁移（如两路回调同时支付），
+        抛 OrderStateError——**禁止**无条件整行覆盖（读-改-写丢失更新，
+        会把对方的 provider_trade_no/callback_id/paid_at 抹掉）。
+        与 B1 同类：资金邻域状态一律条件 UPDATE + rowcount 校验。
+        """
+        ...
+
+    def get_by_order_no_fresh(self, order_no: str) -> RechargeOrder | None:
+        """绕过身份映射的强制刷新读（populate_existing）——并发落败方
+        重读最新态用（同会话内普通 get 会返回过期的身份映射对象）。"""
+        ...
 
 
 class CheckInRepository(Protocol):

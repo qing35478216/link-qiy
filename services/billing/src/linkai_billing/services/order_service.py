@@ -190,7 +190,21 @@ class OrderService:
         if applied.result is LedgerApplyResult.DUPLICATE:
             # 已入账过（极端：上次事务提交前崩溃重试）——订单状态照常推进
             pass
-        self._orders.save(order)
+        try:
+            # N2 条件保存：仅 pending → paid 才写回；并发方已支付则 rowcount=0
+            self._orders.save(order, expect_status=(OrderStatus.PENDING,))
+        except OrderStateError:
+            # 并发回调落败：对方已把订单推向 paid——按幂等处理（重读最新态），
+            # 不向渠道抛 5xx（渠道会重试，下次读到 PAID 走幂等分支）
+            current = self._orders.get_by_order_no_fresh(order.order_no)
+            if current is not None and current.status is OrderStatus.PAID:
+                return PaymentCallbackResult(
+                    order_no=current.order_no,
+                    credited=False,
+                    credits=current.credits,
+                    balance_after=None,
+                )
+            raise
         return PaymentCallbackResult(
             order_no=order.order_no,
             credited=applied.result is not LedgerApplyResult.DUPLICATE,
@@ -208,7 +222,8 @@ class OrderService:
         closed: list[str] = []
         for order in expired:
             order.mark_closed(now=self._now())
-            self._orders.save(order)
+            # 条件保存：仅仍在 pending 的才关（并发支付/关单不再覆盖）
+            self._orders.save(order, expect_status=(OrderStatus.PENDING,))
             closed.append(order.order_no)
         return closed
 

@@ -33,7 +33,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from linkai_billing.domain.errors import DuplicateRequestId
+from linkai_billing.domain.errors import DuplicateRequestId, WalletNotFound
 from linkai_billing.domain.ids import utcnow
 from linkai_billing.domain.ledger import (
     LedgerApplyOutcome,
@@ -57,14 +57,6 @@ def _to_entity(row: WalletModel) -> CreditWallet:
         created_at=ensure_aware(row.created_at),
         updated_at=ensure_aware(row.updated_at),
     )
-
-
-def _apply_entity(wallet: CreditWallet, row: WalletModel) -> None:
-    row.balance = wallet.balance
-    row.plan = wallet.plan
-    row.reminder_threshold = wallet.reminder_threshold
-    row.low_balance_notified_on = wallet.low_balance_notified_on
-    row.updated_at = utcnow()
 
 
 class SqlAlchemyWalletLedger:
@@ -209,10 +201,24 @@ class SqlAlchemyWalletLedger:
         return _to_entity(row)
 
     def save(self, wallet: CreditWallet) -> None:
+        """非资金路径保存（B1 修复，严明二审 BLOCKING 项）。
+
+        **只显式更新 plan / reminder_threshold / low_balance_notified_on
+        三列，绝不回写 balance**——balance 只准经 `apply()` 的条件 UPDATE
+        原子路径变更。整行回放（read-modify-write）会把并发扣减抹掉：
+        plan 同步读 balance=100 → 计量扣减提交（→90）→ plan UPDATE 写回
+        100，扣减丢失（资损窗口）。列级收敛后该窗口在物理上不存在。
+        """
         row = self._session.execute(
             select(WalletModel).where(WalletModel.tenant_id == wallet.tenant_id)
-        ).scalar_one()
-        _apply_entity(wallet, row)
+        ).scalar_one_or_none()
+        if row is None:
+            raise WalletNotFound(f"钱包不存在: {wallet.tenant_id}")
+        row.plan = wallet.plan
+        row.reminder_threshold = wallet.reminder_threshold
+        row.low_balance_notified_on = wallet.low_balance_notified_on
+        row.updated_at = utcnow()
+        # balance 故意不赋值——见 docstring（B1）
         self._session.flush()
 
 

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from linkai_billing.domain.errors import OrderNotFound, OrderStateError
 from linkai_billing.domain.ids import utcnow
 from linkai_billing.domain.orders import OrderStatus, RechargeOrder
 from linkai_billing.infra.db import ensure_aware
@@ -31,16 +34,6 @@ def _order_to_entity(row: RechargeOrderModel) -> RechargeOrder:
         created_at=ensure_aware(row.created_at),
         updated_at=ensure_aware(row.updated_at),
     )
-
-
-def _apply_order(order: RechargeOrder, row: RechargeOrderModel) -> None:
-    row.status = str(order.status)
-    row.provider = order.provider
-    row.provider_trade_no = order.provider_trade_no
-    row.callback_id = order.callback_id
-    row.paid_at = order.paid_at
-    row.closed_at = order.closed_at
-    row.updated_at = utcnow()
 
 
 class SqlAlchemyOrderRepository:
@@ -126,15 +119,61 @@ class SqlAlchemyOrderRepository:
         )
         return [_order_to_entity(row) for row in self._session.execute(stmt).scalars()]
 
-    def save(self, order: RechargeOrder) -> None:
+    def save(self, order: RechargeOrder, *, expect_status: tuple[OrderStatus, ...]) -> None:
+        """条件保存（N2 修复，严明二审同类项）。
+
+        仅当订单行当前状态仍在 expect_status 内才写回；rowcount=0 =
+        状态已被并发方迁移（两路回调同时支付等）→ 抛 OrderStateError。
+        禁止无条件整行覆盖：读-改-写回放会把并发方的
+        provider_trade_no/callback_id/paid_at 抹掉（与 B1 同类的
+        丢失更新，只是发生在订单行而非余额）。
+        """
         row = self._session.execute(
             select(RechargeOrderModel).where(
                 RechargeOrderModel.tenant_id == order.tenant_id,
                 RechargeOrderModel.order_no == order.order_no,
             )
-        ).scalar_one()
-        _apply_order(order, row)
-        self._session.flush()
+        ).scalar_one_or_none()
+        if row is None:
+            raise OrderNotFound(f"订单不存在: {order.order_no}")
+
+        updated = cast(
+            "CursorResult[Any]",
+            self._session.execute(
+                update(RechargeOrderModel)
+                .where(
+                    RechargeOrderModel.tenant_id == order.tenant_id,
+                    RechargeOrderModel.order_no == order.order_no,
+                    RechargeOrderModel.status.in_([str(s) for s in expect_status]),
+                )
+                .values(
+                    status=str(order.status),
+                    provider=order.provider,
+                    provider_trade_no=order.provider_trade_no,
+                    callback_id=order.callback_id,
+                    paid_at=order.paid_at,
+                    closed_at=order.closed_at,
+                    updated_at=utcnow(),
+                )
+            ),
+        )
+        if updated.rowcount == 0:
+            raise OrderStateError(
+                f"订单 {order.order_no} 状态已被并发修改"
+                f"（期望 {[str(s) for s in expect_status]} 之一），本次变更作废"
+            )
+        # 身份映射让位：同请求内后续读取必须拿到 DB 新值（普通 get 命中
+        # 身份映射会返回过期对象）
+        self._session.expire(row)
+
+    def get_by_order_no_fresh(self, order_no: str) -> RechargeOrder | None:
+        """强制刷新读（populate_existing）——并发落败方重读最新态。"""
+        row = self._session.execute(
+            select(RechargeOrderModel)
+            .where(RechargeOrderModel.order_no == order_no)
+            .execution_options(populate_existing=True)
+        ).scalar_one_or_none()
+        return None if row is None else _order_to_entity(row)
 
 
 class SqlAlchemyCheckInRepository:
