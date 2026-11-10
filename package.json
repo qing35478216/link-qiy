@@ -1,8 +1,9 @@
 {
-  "name": "linkai-monorepo",
+  "name": "link-qiy",
   "version": "0.0.0",
   "private": true,
   "description": "LinkAI 复刻工程 Monorepo（契约先行 · 四层架构 · pnpm workspace）",
+  "author": "qiy",
   "engines": {
     "node": ">=20",
     "pnpm": ">=9"
